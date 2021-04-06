@@ -44,7 +44,7 @@ class Subaction(object):
         :param action_name: Ansible module name to use
         :param args: dict with arguments to give to module
         """
-        if (self.__caller_action._is_check_mode() and
+        if (self._is_check_mode_active() and
             self._may_run_in_check_mode(action_name, args)):
             with self._AnsibleCheckModeBypassed(self.__caller_action._play_context):
                 return self.__run(action_name, args)
@@ -54,6 +54,9 @@ class Subaction(object):
     def _may_run_in_check_mode (self, action_name, args):
         """True iff this action is safe to run in Ansible's check mode (i.e., it is read only)."""
         return action_name in ("command", "stat")
+
+    def _is_check_mode_active(self):
+        return self.__task_vars.get('ansible_check_mode', False)            
 
     class _AnsibleCheckModeBypassed(object):
         """Temporarily bypass Ansible's check mode handling mechanism,
