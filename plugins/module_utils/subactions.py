@@ -87,7 +87,7 @@ class Subaction(object):
         :return: The Ansible result dict for the underlying action if update_result was None;
                  or the (changed) update_result parameter otherwise
         """
-        if self.__caller_action._is_check_mode():
+        if self._is_check_mode_active():
             # Simulate "orange" condition, but don't actually do it
             result = dict(changed=True)
         else:
