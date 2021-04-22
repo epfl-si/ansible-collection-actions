@@ -1,0 +1,204 @@
+"""
+Encapsulations for the subset of the Ansible API that is useful when writing action modules.
+"""
+
+import inspect
+from ansible.errors import AnsibleError
+from ansible.plugins.action import ActionBase
+
+# There is a name clash with a module in Ansible named "copy":
+deepcopy = __import__('copy').deepcopy
+
+class AnsibleActions(object):
+    def __init__(self, action, task_vars):
+        """Constructor.
+
+        Call from the `run` method of your ActionBase subclass, e.g.
+
+            from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
+
+            def run(self, tmp=None, task_vars=None):
+              result = super(ActionModule, self).run(tmp, task_vars)
+              api = AnsibleActions(self, task_vars)
+              ... Your code goes here...
+
+        Or if you can't be bothered, just use the `run_method` decorator
+        to take care of that boilerplate for you.
+        """
+
+        self.__caller_action = action
+        self.__task_vars = task_vars
+        self.check_mode = AnsibleCheckMode(action, task_vars)
+
+    @classmethod
+    def run_method(cls, run_method):
+        """Boilerplate-free adapter ro write your `run` methods.
+
+        Use like this:
+
+            from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
+
+            @AnsibleActions.run_method
+            def run(self, args, ansible_api, result):
+               ...
+
+        Or if you don't care about forwarding the garbage that the
+        base class may or may not put into the starter `result` object
+        (Ansible RTFS spoiler: you most likely don't), just
+
+            @AnsibleActions.action_run_method
+            def run(self, args, ansible_api):
+               ...
+
+        The parameters passed to your wrapped `run` method will be as follows:
+
+        args               The task arguments
+        ansible_api        An AnsibleActions instance
+        result             (Only if your wrapped method takes 3 positional arguments or more)
+                           The result of calling the superclass' `run` method, as
+                           an Ansible result dict that may or may not contain a
+                           warning about some code you don't control using an
+                           obsolete API
+
+        Naturally, using an @run_method decorator won't break the is-a
+        relationship, meaning that if you want to access protected
+        fields in `self` (instead of, or in addition to calling
+        methods on `ansible_api`), you can.
+        """
+
+        def wrapped_method(self, task_vars, tmp=None):
+            result = ActionBase.run(self, tmp, task_vars)
+            this = cls(self, task_vars)
+
+            args = self._task.args
+
+            if cls.__wants_result_param(run_method):
+                return run_method(self, args, this, result)
+            else:
+                return run_method(self, args, this)
+
+        return wrapped_method
+
+    @staticmethod
+    def __wants_result_param(run_method):
+        if hasattr(inspect, "signature"):   # Python 3
+            params = inspect.signature(run_method).parameters
+            if len(params) < 4:
+                return False
+            elif params[list(params)[3]].default == inspect.Parameter.empty:
+                # Third parameter (besides self) is not optional
+                return True
+            else:
+                return False
+        else:    # Python 2
+            params = inspect.getargspec(run_method)
+            return len(params.args) - len(params.defaults) > 3
+
+    def run_action(self, action_name, args):
+        """Do what it takes with the Ansible API to get it to run the desired action.
+
+        :param action_name: The name of an Ansible action module, whether bundled with Ansible
+                            (e.g. "command") or user-provided (as a dynamically-loaded
+                            plugin under the `action_plugins` subdirectory of a role or
+                            collection)
+        :param args: The args that would be passed to this action if we were invoking it
+                     the old-fashioned way (i.e., through YAML in a play)
+
+        :return: The Ansible result dict for the underlying action
+        """
+        try:
+            # Plan A
+            # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
+            return self.__caller_action._execute_module(
+                module_name=action_name,
+                module_args=args,
+                task_vars=self.__task_vars)
+        except AnsibleError as e:
+            if not e.message.endswith('was not found in configured module paths'):
+                raise e
+
+        # Plan B
+        # Maybe action_name designates a "user-defined" action module
+        # Retry through self._shared_loader_obj
+        new_task = self.__caller_action._task.copy()
+        new_task.args = deepcopy(args)
+
+        sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
+            action_name,
+            task=new_task,
+            connection=self.__caller_action._connection,
+            play_context=self.__caller_action._play_context,
+            loader=self.__caller_action._loader,
+            templar=self.__caller_action._templar,
+            shared_loader_obj=self.__caller_action._shared_loader_obj)
+        return sub_action.run(task_vars=self.__task_vars)
+
+
+class AnsibleCheckMode(object):
+    """API for querying / setting Ansible's check mode."""
+
+    def __init__(self, caller_action, task_vars):
+        self.__task_vars = task_vars
+        self.__play_context = caller_action._play_context
+
+    @property
+    def is_active(self):
+        return self.__task_vars.get('ansible_check_mode', False)
+
+    @property
+    def bypassed(self):
+        """`with` handler for actions that we do want to run, even in check mode.
+
+        Within a `with api.check_mode.bypassed` block, Ansible's check mode is
+        temporarily bypassed, so that one can run read-only sub-actions.
+        """
+
+        class AnsibleCheckModeBypassed(object):
+            def __init__(self, play_context):
+                self.__play_context = play_context
+
+            def __enter__(self):
+                self.__saved_check_mode =  self.__play_context.check_mode
+                self.__play_context.check_mode = False  # Meaning that yes, it supports check mode
+
+            def __exit__(self, *unused_exception_state):
+                self.__play_context.check_mode = self.__saved_check_mode
+
+        return AnsibleCheckModeBypassed(self.__play_context)
+
+
+class AnsibleResults(object):
+    """Operations on the Ansible result dicts.
+
+    This is a “pure static” class; it makes no sense to construct instances.
+    """
+    def __init__(self):
+        raise NotImplementedError(
+            "%s is a pure-static class; instances may not be constructed" %
+            self.__class__.__name)
+
+    @classmethod
+    def empty(cls):
+        return {}
+
+    @classmethod
+    def update(cls, result, new_result):
+        """
+        Merge `new_result` into `result` like Ansible would
+
+        :param result: dict to update
+        :param new_result: dict to update with
+        """
+        old_result = deepcopy(result)
+        result.update(new_result)
+
+        def _keep_flag_truthy(flag_name):
+            if (flag_name in old_result and
+                old_result[flag_name] and
+                flag_name in result and
+                not result[flag_name]
+            ):
+                result[flag_name] = old_result[flag_name]
+
+        _keep_flag_truthy('changed')
+        _keep_flag_truthy('failed')

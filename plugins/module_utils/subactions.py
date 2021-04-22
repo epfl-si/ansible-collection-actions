@@ -1,7 +1,5 @@
-# There is a name clash with a module in Ansible named "copy":
-deepcopy = __import__('copy').deepcopy
-
-from ansible.errors import AnsibleActionFail, AnsibleError
+from ansible.errors import AnsibleActionFail
+from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions, AnsibleResults
 
 class Subaction(object):
     """Models an Ansible action that your own action module invokes to perform its job.
@@ -9,12 +7,14 @@ class Subaction(object):
     The following example supports `ansible-playbook --check` without further ado:
 
         from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import Subaction
+        from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
         from ansible.plugins.action import ActionBase
 
         class MyAction(ActionBase):
-            def run(self, tmp=None, task_vars=None):
+            @AnsibleActions.action_run_method
+            def run(self, ansible_api):
                 self.result = {}
-                a = SubAction(caller=self, task_vars=task_vars)
+                a = SubAction(ansible_api)
                 probe_result = a.query("command",
                                        dict(_raw_params="ls",
                                             chdir="/etc/apache2"))
@@ -26,9 +26,22 @@ class Subaction(object):
                                 update_result=self.result)
 
     """
-    def __init__ (self, caller, task_vars):
-        self.__caller_action = caller
-        self.__task_vars = task_vars
+
+    def __init__ (self, *args, **kwargs):
+        def init_new_calling_convention(self, ansible_api):
+            if isinstance(ansible_api, AnsibleActions):
+                self.__ansible = ansible_api
+            else:
+                raise TypeError
+
+        def init_old_calling_convention(self, caller, task_vars):
+            """Supported for backwargs compatibility until 1.0 release."""
+            self.__ansible = AnsibleActions(caller, task_vars)
+
+        try:
+            init_new_calling_convention(self, *args, **kwargs)
+        except TypeError:
+            init_old_calling_convention(self, *args, **kwargs)
 
     def query (self, action_name, args):
         """Execute a read-only Ansible sub-action.
@@ -44,9 +57,9 @@ class Subaction(object):
         :param action_name: Ansible module name to use
         :param args: dict with arguments to give to module
         """
-        if (self._is_check_mode_active() and
+        if (self.__ansible.check_mode.is_active and
             self._may_run_in_check_mode(action_name, args)):
-            with self._AnsibleCheckModeBypassed(self.__caller_action._play_context):
+            with self.__ansible.check_mode.bypassed:
                 return self.__run(action_name, args)
         else:
             return self.__run(action_name, args)
@@ -56,21 +69,8 @@ class Subaction(object):
         return action_name in ("command", "stat")
 
     def _is_check_mode_active(self):
-        return self.__task_vars.get('ansible_check_mode', False)            
-
-    class _AnsibleCheckModeBypassed(object):
-        """Temporarily bypass Ansible's check mode handling mechanism,
-        so that we still run read-only sub-actions while in check mode.
-        """
-        def __init__(self, play_context):
-            self.__play_context = play_context
-
-        def __enter__(self):
-            self.__saved_check_mode =  self.__play_context.check_mode
-            self.__play_context.check_mode = False  # Meaning that yes, it supports check mode
-
-        def __exit__(self, *unused_exception_state):
-            self.__play_context.check_mode = self.__saved_check_mode
+        """Obsolete, please use ansible_api.AnsibleActions.check_mode.is_active instead."""
+        return self.__ansible.check_mode.is_active
 
     def change (self, action_name, args, update_result=None):
         """Execute an effectful Ansible sub-action.
@@ -87,7 +87,7 @@ class Subaction(object):
         :return: The Ansible result dict for the underlying action if update_result was None;
                  or the (changed) update_result parameter otherwise
         """
-        if self._is_check_mode_active():
+        if self.__ansible.check_mode.is_active:
             # Simulate "orange" condition, but don't actually do it
             result = dict(changed=True)
         else:
@@ -98,12 +98,9 @@ class Subaction(object):
             return result
 
     def __run (self, action_name, args, update_result=None):
-        caller_action = self.__caller_action
-
-        result = self.__run_with_ansible_api(action_name, args,
-                                             self.__caller_action, self.__task_vars)
+        result = self.__ansible.run_action(action_name, args)
         if update_result is not None:
-            self._update_result(update_result, result)
+            AnsibleResults.update(update_result, result)
 
         if 'failed' in result:
             raise AnsibleActionFail("Subaction failed: %s - Invoked with %s" % (
@@ -111,69 +108,3 @@ class Subaction(object):
                 result.get('invocation', '(no invocation information)')))
         else:
             return result
-
-    @staticmethod
-    def __run_with_ansible_api (action_name, args, caller_action, task_vars):
-        """Do what it takes with the Ansible API to get it to run the desired action.
-
-        This the only place in the entire Python package where we call Ansible code.
-        This is a static method, so as to ensure that all parameters are passed explicitly.
-
-        :param action_name: The name of an Ansible action module, whether bundled with Ansible
-                            (e.g. "command") or user-provided (as a dynamically-loaded
-                            plugin under the `action_plugins` subdirectory of a role or
-                            collection)
-        :param args: The args that would be passed to this action if we were invoking it
-                     the old-fashioned way (i.e., through YAML in a play)
-        :param caller_action: An instance of ansible.plugins.action.ActionBase
-        :param task_vars: The parameter of the same name received by the ActionBase's `run()` method
-
-        :return: The Ansible result dict for the underlying action
-        """
-        try:
-            # Plan A
-            # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
-            return caller_action._execute_module(
-                module_name=action_name,
-                module_args=args,
-                task_vars=task_vars)
-        except AnsibleError as e:
-            if not e.message.endswith('was not found in configured module paths'):
-                raise e
-
-        # Plan B
-        # Maybe action_name designates a "user-defined" action module
-        # Retry through self._shared_loader_obj
-        new_task = caller_action._task.copy()
-        new_task.args = deepcopy(args)
-
-        sub_action = caller_action._shared_loader_obj.action_loader.get(
-            action_name,
-            task=new_task,
-            connection=caller_action._connection,
-            play_context=caller_action._play_context,
-            loader=caller_action._loader,
-            templar=caller_action._templar,
-            shared_loader_obj=caller_action._shared_loader_obj)
-        return sub_action.run(task_vars=task_vars)
-
-    def _update_result (self, result, new_result):
-        """
-        Merge `new_result` into `result` like Ansible would
-
-        :param result: dict to update
-        :param new_result: dict to update with
-        """
-        old_result = deepcopy(result)
-        result.update(new_result)
-
-        def _keep_flag_truthy(flag_name):
-            if (flag_name in old_result and
-                old_result[flag_name] and
-                flag_name in result and
-                not result[flag_name]
-            ):
-                result[flag_name] = old_result[flag_name]
-
-        _keep_flag_truthy('changed')
-        _keep_flag_truthy('failed')

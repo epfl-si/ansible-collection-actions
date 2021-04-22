@@ -13,9 +13,11 @@ The following example supports `ansible-playbook --check` without further ado:
 ```python
 from ansible.plugins.action import ActionBase
 from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import Subaction
+from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
 
 class MyAction(ActionBase):
-    def run(self, tmp=None, task_vars=None):
+    @AnsibleActions.run_method
+    def run(self, args, ansible_api):
         self.result = {}
         a = SubAction(caller=self, task_vars=task_vars)
         probe_result = a.query("command",
