@@ -13,21 +13,30 @@ class Subaction(object):
         class MyAction(ActionBase):
             @AnsibleActions.action_run_method
             def run(self, ansible_api):
-                self.result = {}
                 a = SubAction(ansible_api)
                 probe_result = a.query("command",
                                        dict(_raw_params="ls",
                                             chdir="/etc/apache2"))
 
                 # Ponder probe_result...
-                return a.change("command",
-                                dict(_raw_params="touch",
-                                     chdir="/etc/apache2")),
-                                update_result=self.result)
+                a.result = {}
+                a.change("command",
+                         dict(_raw_params="touch",
+                         chdir="/etc/apache2")))
 
+                return a.result
+
+    Setting the `result` property to an Ansible result dict, will
+    accumulate subaction results into said result dict everytime
+    `query` or `change` is called. (In the code example above, we see
+    that one can time the setting of `result` so as to discard query
+    results; another possibility would be to use two separate
+    instances of Subaction.)
     """
 
     def __init__ (self, *args, **kwargs):
+        self.result = None
+
         def init_new_calling_convention(self, ansible_api):
             if isinstance(ansible_api, AnsibleActions):
                 self.__ansible = ansible_api
@@ -57,12 +66,19 @@ class Subaction(object):
         :param action_name: Ansible module name to use
         :param args: dict with arguments to give to module
         """
+        def run_and_update_result(self):
+            query_result = self.__ansible.run_action(action_name, args)
+            if self.result is not None:
+                AnsibleResults.update(self.result, AnsibleResults.unchanged(query_result))
+            self._raise_if_failed(query_result)
+            return query_result
+
         if (self.__ansible.check_mode.is_active and
             self._may_run_in_check_mode(action_name, args)):
             with self.__ansible.check_mode.bypassed:
-                return self.__run(action_name, args)
+                return run_and_update_result(self)
         else:
-            return self.__run(action_name, args)
+            return run_and_update_result(self)
 
     def _may_run_in_check_mode (self, action_name, args):
         """True iff this action is safe to run in Ansible's check mode (i.e., it is read only)."""
@@ -81,8 +97,7 @@ class Subaction(object):
 
         :param action_name: Ansible module name to use
         :param args: Dict with arguments to give to module
-        :param update_result: If set, update this result dict with the status of
-           the sub-action
+        :param update_result: Obsolete, set the `result` object property instead
 
         :return: The Ansible result dict for the underlying action if update_result was None;
                  or the (changed) update_result parameter otherwise
@@ -91,20 +106,21 @@ class Subaction(object):
             # Simulate "orange" condition, but don't actually do it
             result = dict(changed=True)
         else:
-            result = self.__run(action_name, args, update_result=update_result)
+            result = self.__ansible.run_action(action_name, args)
+
         if update_result:
-            return update_result
+            AnsibleResults.update(update_result, result)
+            self._raise_if_failed(result)
+            return update_result   # Pretty debatable idea - Part of the reason why
+                                   # update_result is obsolete
         else:
+            if self.result is not None:
+                AnsibleResults.update(self.result, result)
+            self._raise_if_failed(result)
             return result
 
-    def __run (self, action_name, args, update_result=None):
-        result = self.__ansible.run_action(action_name, args)
-        if update_result is not None:
-            AnsibleResults.update(update_result, result)
-
+    def _raise_if_failed(self, result):
         if 'failed' in result:
             raise AnsibleActionFail("Subaction failed: %s - Invoked with %s" % (
                 result.get('msg', '(no message)'),
                 result.get('invocation', '(no invocation information)')))
-        else:
-            return result

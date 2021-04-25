@@ -19,16 +19,17 @@ class MyAction(ActionBase):
     @AnsibleActions.run_method
     def run(self, args, ansible_api):
         self.result = {}
-        a = SubAction(caller=self, task_vars=task_vars)
+        a = SubAction(ansible_api)
         probe_result = a.query("command",
                                dict(_raw_params="ls",
                                     chdir="/etc/apache2"))
 
         # Ponder probe_result...
-        return a.change("command",
-                        dict(_raw_params="touch",
-                             chdir="/etc/apache2")),
-                        update_result=self.result)
+        a.result = {}
+        a.change("command",
+                 dict(_raw_params="touch",
+                      chdir="/etc/apache2")))
+        return a.result
 ```
 
 This class

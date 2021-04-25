@@ -202,3 +202,11 @@ class AnsibleResults(object):
 
         _keep_flag_truthy('changed')
         _keep_flag_truthy('failed')
+
+    @classmethod
+    def unchanged(cls, result):
+        """Return a copy of `result` without its `changed` key (if any)"""
+        result_copy = deepcopy(result)
+        if "changed" in result_copy:
+            del result_copy["changed"]
+        return result_copy
