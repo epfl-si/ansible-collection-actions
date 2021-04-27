@@ -1,7 +1,7 @@
 from ansible.errors import AnsibleActionFail
 from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions, AnsibleResults
 
-class Subaction(object):
+class Subaction (object):
     """Models an Ansible action that your own action module invokes to perform its job.
 
     The following example supports `ansible-playbook --check` without further ado:
@@ -10,9 +10,9 @@ class Subaction(object):
         from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
         from ansible.plugins.action import ActionBase
 
-        class MyAction(ActionBase):
+        class MyAction (ActionBase):
             @AnsibleActions.action_run_method
-            def run(self, ansible_api):
+            def run (self, ansible_api):
                 a = SubAction(ansible_api)
                 probe_result = a.query("command",
                                        dict(_raw_params="ls",
@@ -37,13 +37,13 @@ class Subaction(object):
     def __init__ (self, *args, **kwargs):
         self.result = None
 
-        def init_new_calling_convention(self, ansible_api):
+        def init_new_calling_convention (self, ansible_api):
             if isinstance(ansible_api, AnsibleActions):
                 self.__ansible = ansible_api
             else:
                 raise TypeError
 
-        def init_old_calling_convention(self, caller, task_vars):
+        def init_old_calling_convention (self, caller, task_vars):
             """Supported for backwargs compatibility until 1.0 release."""
             self.__ansible = AnsibleActions(caller, task_vars)
 
@@ -68,7 +68,7 @@ class Subaction(object):
         :param failed_when: An optional function that takes the result and returns
             a truthy value iff the action failed
         """
-        def run_and_update_result(self):
+        def run_and_update_result (self):
             query_result = self.__ansible.run_action(action_name, args)
             error = self._redress_failure(query_result, failed_when)
             if self.result is not None:
@@ -89,7 +89,7 @@ class Subaction(object):
         """True iff this action is safe to run in Ansible's check mode (i.e., it is read only)."""
         return action_name in ("command", "stat")
 
-    def _is_check_mode_active(self):
+    def _is_check_mode_active (self):
         """Obsolete, please use ansible_api.AnsibleActions.check_mode.is_active instead."""
         return self.__ansible.check_mode.is_active
 
