@@ -73,9 +73,13 @@ class AnsibleActions(object):
             args = self._task.args
 
             if cls.__wants_result_param(run_method):
-                return run_method(self, args, this, result)
+                result = run_method(self, args, this, result)
             else:
-                return run_method(self, args, this)
+                result = run_method(self, args, this)
+            if AnsibleResults.is_instance(result):
+                return result
+            else:
+                raise TypeError("Wrapped @run_method should return an Ansible result dict")
 
         return wrapped_method
 
@@ -210,3 +214,7 @@ class AnsibleResults(object):
         if "changed" in result_copy:
             del result_copy["changed"]
         return result_copy
+
+    @classmethod
+    def is_instance(cls, result):
+        return isinstance(result, dict)
