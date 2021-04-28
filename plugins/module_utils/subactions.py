@@ -152,9 +152,18 @@ class Subaction (object):
             return AnsibleActionFail("Subaction failed: %s - Invoked with %s" % (
                 result.get('msg', '(no message)'),
                 result.get('invocation', '(no invocation information)')))
+
+        # We will be returning None; scrub failure evidence out of result to
+        # prevent clueless callers (such as the Ansible core) from freaking out
+        if "rc" in result and str(result["rc"]) != "0":
+            # This is a `command` or the like.
+            result['failed'] = False  # Don't just delete it; lest task_executor.py:705 take it
+                                      # upon itself to inspect ["rc"] again
+            if 'msg' in result:
+                # Not set by us, and typically misleading e.g. "non-zero return code"
+                del result['msg']
         else:
-            try:
+            if 'failed' in result:
                 del result['failed']
-            except KeyError:
-                pass
-            return None
+
+        return None
