@@ -131,7 +131,8 @@ def run_postcondition (postcondition, check_mode):
 
     passive = postcondition.passive()
     if passive:
-        result["failed"] = (passive if isinstance(passive, six.string_types)
+        result["failed"] = True
+        result["msg"] = (passive if isinstance(passive, six.string_types)
                             else "%s: does not hold" % postcondition.explainer())
         return result  # Red
 
@@ -144,7 +145,8 @@ def run_postcondition (postcondition, check_mode):
         changed = postcondition.enforce()
         result["changed"] = changed if changed is not None else True
     except DeclinedToEnforce as e:
-        result["failed"] = "%s: %s" % (
+        result["failed"] = True
+        result["msg"] = "%s: %s" % (
             postcondition.explainer(),
             e.why if e.why is not None else "enforcement declined")
 
