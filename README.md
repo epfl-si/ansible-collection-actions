@@ -26,7 +26,7 @@ class MyAction(ActionBase):
         # Ponder probe_result...
         a.result = {}
         a.change("command",
-                 dict(_raw_params="touch",
+                 dict(_raw_params="touch zoinx.conf",
                       chdir="/etc/apache2")))
         return a.result
 ```
