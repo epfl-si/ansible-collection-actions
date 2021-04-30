@@ -117,7 +117,7 @@ class Subaction (object):
 
         error = self._redress_failure(result, failed_when)
 
-        if update_result:
+        if update_result is not None:
             AnsibleResults.update(update_result, result)
             if error:
                 raise error
