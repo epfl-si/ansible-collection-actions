@@ -18,7 +18,6 @@ from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import
 class MyAction(ActionBase):
     @AnsibleActions.run_method
     def run(self, args, ansible_api):
-        self.result = {}
         a = SubAction(ansible_api)
         probe_result = a.query("command",
                                dict(_raw_params="ls",
