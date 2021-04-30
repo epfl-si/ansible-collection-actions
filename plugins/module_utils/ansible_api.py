@@ -9,8 +9,8 @@ from ansible.plugins.action import ActionBase
 # There is a name clash with a module in Ansible named "copy":
 deepcopy = __import__('copy').deepcopy
 
-class AnsibleActions(object):
-    def __init__(self, action, task_vars):
+class AnsibleActions (object):
+    def __init__ (self, action, task_vars):
         """Constructor.
 
         Call from the `run` method of your ActionBase subclass, e.g.
@@ -31,7 +31,7 @@ class AnsibleActions(object):
         self.check_mode = AnsibleCheckMode(action, task_vars)
 
     @classmethod
-    def run_method(cls, run_method):
+    def run_method (cls, run_method):
         """Boilerplate-free adapter ro write your `run` methods.
 
         Use like this:
@@ -39,7 +39,7 @@ class AnsibleActions(object):
             from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
 
             @AnsibleActions.run_method
-            def run(self, args, ansible_api, result):
+            def run (self, args, ansible_api, result):
                ...
 
         Or if you don't care about forwarding the garbage that the
@@ -47,7 +47,7 @@ class AnsibleActions(object):
         (Ansible RTFS spoiler: you most likely don't), just
 
             @AnsibleActions.action_run_method
-            def run(self, args, ansible_api):
+            def run (self, args, ansible_api):
                ...
 
         The parameters passed to your wrapped `run` method will be as follows:
@@ -66,7 +66,7 @@ class AnsibleActions(object):
         methods on `ansible_api`), you can.
         """
 
-        def wrapped_method(self, task_vars, tmp=None):
+        def wrapped_method (self, task_vars, tmp=None):
             result = ActionBase.run(self, tmp, task_vars)
             this = cls(self, task_vars)
 
@@ -84,7 +84,7 @@ class AnsibleActions(object):
         return wrapped_method
 
     @staticmethod
-    def __wants_result_param(run_method):
+    def __wants_result_param (run_method):
         if hasattr(inspect, "signature"):   # Python 3
             params = inspect.signature(run_method).parameters
             if len(params) < 4:
@@ -98,7 +98,7 @@ class AnsibleActions(object):
             params = inspect.getargspec(run_method)
             return len(params.args) - len(params.defaults) > 3
 
-    def run_action(self, action_name, args):
+    def run_action (self, action_name, args):
         """Do what it takes with the Ansible API to get it to run the desired action.
 
         :param action_name: The name of an Ansible action module, whether bundled with Ansible
@@ -141,16 +141,16 @@ class AnsibleActions(object):
 class AnsibleCheckMode(object):
     """API for querying / setting Ansible's check mode."""
 
-    def __init__(self, caller_action, task_vars):
+    def __init__ (self, caller_action, task_vars):
         self.__task_vars = task_vars
         self.__play_context = caller_action._play_context
 
     @property
-    def is_active(self):
+    def is_active (self):
         return self.__task_vars.get('ansible_check_mode', False)
 
     @property
-    def bypassed(self):
+    def bypassed (self):
         """`with` handler for actions that we do want to run, even in check mode.
 
         Within a `with api.check_mode.bypassed` block, Ansible's check mode is
@@ -158,14 +158,14 @@ class AnsibleCheckMode(object):
         """
 
         class AnsibleCheckModeBypassed(object):
-            def __init__(self, play_context):
+            def __init__ (self, play_context):
                 self.__play_context = play_context
 
-            def __enter__(self):
+            def __enter__ (self):
                 self.__saved_check_mode =  self.__play_context.check_mode
                 self.__play_context.check_mode = False  # Meaning that yes, it supports check mode
 
-            def __exit__(self, *unused_exception_state):
+            def __exit__ (self, *unused_exception_state):
                 self.__play_context.check_mode = self.__saved_check_mode
 
         return AnsibleCheckModeBypassed(self.__play_context)
@@ -176,17 +176,17 @@ class AnsibleResults(object):
 
     This is a “pure static” class; it makes no sense to construct instances.
     """
-    def __init__(self):
+    def __init__ (self):
         raise NotImplementedError(
             "%s is a pure-static class; instances may not be constructed" %
             self.__class__.__name)
 
     @classmethod
-    def empty(cls):
+    def empty (cls):
         return {}
 
     @classmethod
-    def update(cls, result, new_result):
+    def update (cls, result, new_result):
         """
         Merge `new_result` into `result` like Ansible would
 
@@ -196,7 +196,7 @@ class AnsibleResults(object):
         old_result = deepcopy(result)
         result.update(new_result)
 
-        def _keep_flag_truthy(flag_name):
+        def _keep_flag_truthy (flag_name):
             if (flag_name in old_result and
                 old_result[flag_name] and
                 flag_name in result and
@@ -208,7 +208,7 @@ class AnsibleResults(object):
         _keep_flag_truthy('failed')
 
     @classmethod
-    def unchanged(cls, result):
+    def unchanged (cls, result):
         """Return a copy of `result` without its `changed` key (if any)"""
         result_copy = deepcopy(result)
         if "changed" in result_copy:
@@ -216,5 +216,5 @@ class AnsibleResults(object):
         return result_copy
 
     @classmethod
-    def is_instance(cls, result):
+    def is_instance (cls, result):
         return isinstance(result, dict)
