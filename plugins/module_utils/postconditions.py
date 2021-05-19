@@ -64,7 +64,8 @@ class Postcondition (object):
         This is very rarely what you want (an example of it being
         what you want would be sending an email or updating
         some kind of monitoring system at the end of a play); in
-        all 
+        all other cases, you need to override the method in a
+        subclass.
         """
         return False
 
