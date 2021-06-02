@@ -1,6 +1,10 @@
 # Changelog for epfl_si.actions
 
-## version 0.2.0
+## version 0.2.1: minor bugfix release
+
+- Various documentation and `galaxy.yml` improvements, dead code removal
+
+## version 0.2.0: major feature release
 
 Deprecations / API changes:
 - The `update_result` parameter to `Subaction(...).change` is deprecated; instead, one should set the `Subaction(...).result` object field to an Ansible result dict, that will be updated *both* by `.query` and `.change`

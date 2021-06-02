@@ -1,7 +1,8 @@
 namespace: "epfl_si"
 name: "actions"
-version: "0.2.0"
+version: "0.2.1"
 readme: "README.md"
+description: Utilities to help build new Ansible actions
 authors:
     - "EPFL IDEV-FSD <idev-fsd@groupes.epfl.ch>"
 license:
