@@ -1,6 +1,6 @@
 # Changelog for epfl_si.actions
 
-## version 0.2.1: minor bugfix release
+## versions 0.2.1 and 0.2.2: minor bugfix releases
 
 - Various documentation and `galaxy.yml` improvements, dead code removal
 
