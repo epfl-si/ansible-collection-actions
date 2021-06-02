@@ -31,6 +31,7 @@ class MyAction (ActionBase):
 ```
 
 This class
+
 - Abstracts away the complexities of the underlying Ansible API (which differs depending on whether you want to invoke “standard” and “home-grown” action modules)
 - Forces callers to explicitly distinguish between **changes** and **queries**
 - Ensures that queries also run under `ansible-playbook --check`
