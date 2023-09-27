@@ -3,8 +3,6 @@ Encapsulations for the subset of the Ansible API that is useful when writing act
 """
 
 import inspect
-from ansible.errors import AnsibleError
-from ansible.plugins.action import ActionBase
 
 # There is a name clash with a module in Ansible named "copy":
 deepcopy = __import__('copy').deepcopy
@@ -65,6 +63,7 @@ class AnsibleActions (object):
         fields in `self` (instead of, or in addition to calling
         methods on `ansible_api`), you can.
         """
+        from ansible.plugins.action import ActionBase
 
         def wrapped_method (self, task_vars, tmp=None):
             result = ActionBase.run(self, tmp, task_vars)
@@ -110,6 +109,7 @@ class AnsibleActions (object):
 
         :return: The Ansible result dict for the underlying action
         """
+        from ansible.errors import AnsibleError
         try:
             # Plan A
             # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"

@@ -8,7 +8,14 @@ Writing your Ansible action modules as subclasses of Postcondition lets you
 pretty much do away with learning what an Ansible return dict is.
 """
 
-from ansible.errors import AnsibleError, AnsibleActionFail
+try:
+    from ansible.errors import AnsibleError, AnsibleActionFail
+except ImportError:   # We are “remote” within an AnsiballZ
+    class AnsibleError(Exception):
+        pass
+    class AnsibleActionFail(Exception):
+        pass
+
 from ansible.module_utils import six
 from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleResults
 
@@ -126,7 +133,6 @@ class Postcondition (object):
 
 def run_postcondition (postcondition, check_mode):
     result = AnsibleResults.empty()
-
     if postcondition.holds():
         return result  # Green
 
