@@ -32,7 +32,7 @@ class AnsibleActions (object):
 
     @classmethod
     def run_method (cls, run_method):
-        """Boilerplate-free adapter ro write your `run` methods.
+        """Boilerplate-free adapter to write your `run` methods.
 
         Use like this:
 
