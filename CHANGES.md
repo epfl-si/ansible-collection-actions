@@ -1,6 +1,10 @@
 # Changelog for epfl_si.actions
 
-## versions 0.3.0: minor feature release
+## version 0.3.1: minor bugfix release
+
+In 0.3.0, we forgout about `run_postcondition()` also being helpful to call from an AnsiballZ context. It now accepts both an `AnsibleCheckMode` instance and a plain old Boolean as its second argument.
+
+## version 0.3.0: minor feature release
 
 - The `ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api` and `ansible_collections.epfl_si.actions.plugins.module_utils.postconditions` modules now support being imported as part of an AnsiballZ package (i.e., from a `library` module that gets sent over the wire to the remote Python interpreter)
 
