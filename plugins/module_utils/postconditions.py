@@ -132,6 +132,8 @@ class Postcondition (object):
 
 
 def run_postcondition (postcondition, check_mode):
+    if hasattr(check_mode, "is_active"):
+        check_mode = check_mode.is_active
     result = AnsibleResults.empty()
     if postcondition.holds():
         return result  # Green
@@ -143,7 +145,7 @@ def run_postcondition (postcondition, check_mode):
                             else "%s: does not hold" % postcondition.explainer())
         return result  # Red
 
-    if check_mode.is_active:
+    if check_mode:
         result["changed"] = "%s: does not hold; enforcement skipped under --check" % \
           postcondition.explainer()
         return result  # Yellow
