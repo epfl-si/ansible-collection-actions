@@ -1,5 +1,9 @@
 # Changelog for epfl_si.actions
 
+## versions 0.3.0: minor feature release
+
+- The `ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api` and `ansible_collections.epfl_si.actions.plugins.module_utils.postconditions` modules now support being imported as part of an AnsiballZ package (i.e., from a `library` module that gets sent over the wire to the remote Python interpreter)
+
 ## versions 0.2.1 and 0.2.2: minor bugfix releases
 
 - Various documentation and `galaxy.yml` improvements, dead code removal
