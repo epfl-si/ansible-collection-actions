@@ -6,8 +6,8 @@ class Subaction (object):
 
     The following example supports `ansible-playbook --check` without further ado:
 
-        from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import Subaction
         from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
+        from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import Subaction
         from ansible.plugins.action import ActionBase
 
         class MyAction (ActionBase):
