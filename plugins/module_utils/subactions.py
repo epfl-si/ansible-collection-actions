@@ -11,7 +11,7 @@ class Subaction (object):
         from ansible.plugins.action import ActionBase
 
         class MyAction (ActionBase):
-            @AnsibleActions.action_run_method
+            @AnsibleActions.run_method
             def run (self, ansible_api):
                 a = SubAction(ansible_api)
                 probe_result = a.query("command",

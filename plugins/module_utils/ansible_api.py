@@ -44,7 +44,7 @@ class AnsibleActions (object):
         base class may or may not put into the starter `result` object
         (Ansible RTFS spoiler: you most likely don't), just
 
-            @AnsibleActions.action_run_method
+            @AnsibleActions.run_method
             def run (self, args, ansible_api):
                ...
 
