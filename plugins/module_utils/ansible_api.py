@@ -5,7 +5,7 @@ Encapsulations for the subset of the Ansible API that is useful when writing act
 import inspect
 
 # There is a name clash with a module in Ansible named "copy":
-deepcopy = __import__('copy').deepcopy
+copy = __import__('copy')
 
 class AnsibleActions (object):
     """The actions API of Ansible.
@@ -138,7 +138,7 @@ class AnsibleActions (object):
         # Maybe action_name designates a "user-defined" action module
         # Retry through self._shared_loader_obj
         new_task = self.__caller_action._task.copy()
-        new_task.args = deepcopy(args)
+        new_task.args = copy.deepcopy(args)
 
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
             action_name,
@@ -206,7 +206,7 @@ class AnsibleResults(object):
         :param result: dict to update
         :param new_result: dict to update with
         """
-        old_result = deepcopy(result)
+        old_result = copy.deepcopy(result)
         result.update(new_result)
 
         def _keep_flag_truthy (flag_name):
@@ -223,7 +223,7 @@ class AnsibleResults(object):
     @classmethod
     def unchanged (cls, result):
         """Return a copy of `result` without its `changed` key (if any)"""
-        result_copy = deepcopy(result)
+        result_copy = copy.deepcopy(result)
         if "changed" in result_copy:
             del result_copy["changed"]
         return result_copy
