@@ -184,15 +184,17 @@ class AnsibleCheckMode(object):
         return AnsibleCheckModeBypassed(self.__play_context)
 
 
+def _pure_static (self):
+    raise NotImplementedError(
+        "%s is a pure-static class; instances may not be constructed" %
+        self.__class__.__name__)
+
 class AnsibleResults(object):
     """Operations on the Ansible result dicts.
 
     This is a “pure static” class; it makes no sense to construct instances.
     """
-    def __init__ (self):
-        raise NotImplementedError(
-            "%s is a pure-static class; instances may not be constructed" %
-            self.__class__.__name)
+    __init__ = _pure_static
 
     @classmethod
     def empty (cls):
