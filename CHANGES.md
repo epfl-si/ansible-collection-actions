@@ -3,6 +3,7 @@
 ## version 0.4.0: minor feature and deprecation release
 
 - Drop support for Python 2. Version 0.3.1 is the last version that supports Python 2.
+- Tasks written on top of `epfl_si.actions.plugins.module_utils.ansible_api` may now observe and manipulate variables
 
 ## version 0.3.1: minor bugfix release
 

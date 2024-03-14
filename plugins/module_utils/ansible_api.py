@@ -73,6 +73,8 @@ class AnsibleActions (object):
                            an Ansible result dict that may or may not contain a
                            warning about some code you don't control using an
                            obsolete API
+        task_vars          The dict of variables that Ansible set for the task
+                           currently executing.
 
         Naturally, using an @run_method decorator won't break the is-a
         relationship, meaning that if you want to access protected
@@ -86,7 +88,8 @@ class AnsibleActions (object):
             task_args = self._task.args
 
             all_kwargs = dict(
-                result=ActionBase.run(self, tmp, task_vars))
+                result=ActionBase.run(self, tmp, task_vars),
+                task_vars=task_vars)
 
             accepted_parameters = cls.__get_optional_parameter_names(run_method)
             kwargs = dict((k, v) for (k, v) in all_kwargs.items()
@@ -105,7 +108,7 @@ class AnsibleActions (object):
         params = inspect.signature(run_method).parameters
         return set(list(params)[3:])
 
-    def run_action (self, action_name, args):
+    def run_action (self, action_name, args, vars=None):
         """Do what it takes with the Ansible API to get it to run the desired action.
 
         :param action_name: The name of an Ansible action module, whether bundled with Ansible
@@ -115,6 +118,8 @@ class AnsibleActions (object):
         :param args: The args that would be passed to this action if we were invoking it
                      the old-fashioned way (i.e., through YAML in a play)
 
+        :param vars: The dict of Ansible vars that the action to run should see. By
+                     default, pass “our” vars (the ones passed to the caller).
         :return: The Ansible result dict for the underlying action
         """
         from ansible.errors import AnsibleError
@@ -124,7 +129,7 @@ class AnsibleActions (object):
             return self.__caller_action._execute_module(
                 module_name=action_name,
                 module_args=args,
-                task_vars=self.__task_vars)
+                task_vars=vars if vars is not None else self.__task_vars)
         except AnsibleError as e:
             if not e.message.endswith('was not found in configured module paths'):
                 raise e
