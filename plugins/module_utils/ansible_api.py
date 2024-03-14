@@ -3,6 +3,7 @@ Encapsulations for the subset of the Ansible API that is useful when writing act
 """
 
 import inspect
+import os
 
 # There is a name clash with a module in Ansible named "copy":
 copy = __import__('copy')
@@ -108,7 +109,7 @@ class AnsibleActions (object):
         params = inspect.signature(run_method).parameters
         return set(list(params)[3:])
 
-    def run_action (self, action_name, args, vars=None):
+    def run_action (self, action_name, args, vars=None, connection=None):
         """Do what it takes with the Ansible API to get it to run the desired action.
 
         :param action_name: The name of an Ansible action module, whether bundled with Ansible
@@ -120,13 +121,17 @@ class AnsibleActions (object):
 
         :param vars: The dict of Ansible vars that the action to run should see. By
                      default, pass “our” vars (the ones passed to the caller).
+        :param connection: A specific Ansible connection object to use instead of the caller's default one.
         :return: The Ansible result dict for the underlying action
         """
         from ansible.errors import AnsibleError
         try:
             # Plan A
             # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
-            return self.__caller_action._execute_module(
+            action = copy.copy(self.__caller_action)
+            if connection is not None:
+                action._connection = connection
+            return action._execute_module(
                 module_name=action_name,
                 module_args=args,
                 task_vars=vars if vars is not None else self.__task_vars)
@@ -143,12 +148,87 @@ class AnsibleActions (object):
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
             action_name,
             task=new_task,
-            connection=self.__caller_action._connection,
+            connection=(connection if connection is not None
+                        else self.__caller_action._connection),
             play_context=self.__caller_action._play_context,
             loader=self.__caller_action._loader,
             templar=self.__caller_action._templar,
             shared_loader_obj=self.__caller_action._shared_loader_obj)
         return sub_action.run(task_vars=self.__task_vars)
+
+    def make_connection (self, **vars_overrides):
+        """Load and configure a Connection object like Ansible would.
+
+        The connection's shell (available as the return value's
+        protected `._shell` property) will automatically be set to
+        the result of `.make_shell(**vars_overrides)`.
+
+        :param **vars_overrides: Variables that you would set on an
+        Ansible task that you want to change the connection (or shell) details
+        of, e.g. `ansible_connection="oc"`, `ansible_remote_tmp="/tmp"` etc.
+        """
+        cvars = self.__complete_vars(vars_overrides)
+
+        conn_type = cvars.get("ansible_connection")
+        if conn_type is None:
+            # As seen in ansible.executor.TaskExecutor._get_connection():
+            conn_type = self.__caller_action._play_context.connection
+
+        shared_loader_obj = self.__caller_action._shared_loader_obj
+        connection, unused = shared_loader_obj.connection_loader.get_with_context(
+            conn_type,
+            self.__caller_action._play_context,
+            None,   # _new_stdin - Whatever *that* is supposed to mean.
+            shell=self.make_shell(**vars_overrides),
+            task_uuid=self.__caller_action._task._uuid,
+            ansible_playbook_pid="%d" % os.getppid())
+        if not connection:
+            raise AnsibleError("the connection plugin '%s' was not found" %
+                               conn_type)
+
+        self.__configure_loaded_object("connection", connection, cvars)
+        return connection
+
+    def make_shell (self, **vars_overrides):
+        """Load and configure a Shell object like Ansible would.
+
+        :param **vars_overrides: Variables that you would set on an
+        Ansible task that you want to change the shell details
+        of, e.g. `ansible_remote_tmpdir="/tmp"` etc.
+        """
+        cvars = self.__complete_vars(vars_overrides)
+
+        shell_type = cvars.get('ansible_shell_type', 'sh')
+
+        shared_loader_obj = self.__caller_action._shared_loader_obj
+        shell, unused = shared_loader_obj.shell_loader.get_with_context(
+            shell_type)
+        if not shell:
+            raise AnsibleError("the shell plugin '%s' was not found" %
+                               shell_type)
+
+        self.__configure_loaded_object("shell", shell, cvars)
+        return shell
+
+    def __complete_vars (self, vars_overrides):
+        cvars = {}
+        cvars.update(self.__task_vars)
+        cvars.update(vars_overrides)
+        return cvars
+
+    def __configure_loaded_object (self, kind, obj, cvars):
+        from ansible import constants as C
+        from ansible.errors import AnsibleError
+
+        templar = self.__caller_action._templar
+
+        # As seen in ansible.executor.TaskExecutor._set_connection_options():
+        useful_vars = C.config.get_plugin_vars(kind, obj._load_name)
+        obj.set_options(
+            task_keys=self.__caller_action._task.dump_attrs(),
+            var_options=dict((k, templar.template(cvars[k]))
+                             for k in useful_vars
+                             if k in cvars))
 
 
 class AnsibleCheckMode(object):
