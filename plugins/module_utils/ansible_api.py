@@ -56,23 +56,20 @@ class AnsibleActions (object):
             from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions
 
             @AnsibleActions.run_method
-            def run (self, args, ansible_api, result):
-               ...
-
-        Or if you don't care about forwarding the garbage that the
-        base class may or may not put into the starter `result` object
-        (Ansible RTFS spoiler: you most likely don't), just
-
-            @AnsibleActions.run_method
             def run (self, args, ansible_api):
                ...
 
-        The parameters passed to your wrapped `run` method will be as follows:
+        Your wrapped `run` method will always be passed the following
+        positional arguments:
 
         args               The task arguments
         ansible_api        An AnsibleActions instance
-        result             (Only if your wrapped method takes 3 positional arguments or more)
-                           The result of calling the superclass' `run` method, as
+
+        Additionnally, your method may decide to accept the following
+        named arguments (and they will only be passed if your method
+        can accept them):
+
+        result             The result of calling the superclass' `run` method, as
                            an Ansible result dict that may or may not contain a
                            warning about some code you don't control using an
                            obsolete API
@@ -85,15 +82,17 @@ class AnsibleActions (object):
         from ansible.plugins.action import ActionBase
 
         def wrapped_method (self, task_vars, tmp=None):
-            result = ActionBase.run(self, tmp, task_vars)
             this = cls(self, task_vars)
+            task_args = self._task.args
 
-            args = self._task.args
+            all_kwargs = dict(
+                result=ActionBase.run(self, tmp, task_vars))
 
-            if cls.__wants_result_param(run_method):
-                result = run_method(self, args, this, result)
-            else:
-                result = run_method(self, args, this)
+            accepted_parameters = cls.__get_optional_parameter_names(run_method)
+            kwargs = dict((k, v) for (k, v) in all_kwargs.items()
+                                 if k in accepted_parameters)
+
+            result = run_method(self, task_args, this, **kwargs)
             if AnsibleResults.is_instance(result):
                 return result
             else:
@@ -102,15 +101,9 @@ class AnsibleActions (object):
         return wrapped_method
 
     @staticmethod
-    def __wants_result_param (run_method):
+    def __get_optional_parameter_names (run_method):
         params = inspect.signature(run_method).parameters
-        if len(params) < 4:
-            return False
-        elif params[list(params)[3]].default == inspect.Parameter.empty:
-            # Third parameter (besides self) is not optional
-            return True
-        else:
-            return False
+        return set(list(params)[3:])
 
     def run_action (self, action_name, args):
         """Do what it takes with the Ansible API to get it to run the desired action.
