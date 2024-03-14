@@ -8,6 +8,17 @@ import inspect
 deepcopy = __import__('copy').deepcopy
 
 class AnsibleActions (object):
+    """The actions API of Ansible.
+
+    An instance of this class contains all the API that should be
+    useful e.g. to a class that derives from
+    `ansible.plugins.action.ActionBase`, sans the wonky calling
+    conventions and the inheritance-that-breaks-encapsulation.
+
+    Public attributes:
+
+       check_mode: An instance of AnsibleCheckMode
+    """
     def __init__ (self, action, task_vars):
         """Constructor.
 
@@ -22,6 +33,14 @@ class AnsibleActions (object):
 
         Or if you can't be bothered, just use the `run_method` decorator
         to take care of that boilerplate for you.
+
+        Arguments:
+           action: The action instance in play (typically belonging to
+             your own subclass of `ansible.plugins.action.ActionBase`,
+             and that makes use of the `run_method` wrapper)
+           task_vars: The variables that Ansible passed to your action
+             class. After construction, a `deepcopy` of it will be
+             available as the `.task_vars` public attribute.
         """
 
         self.__caller_action = action
