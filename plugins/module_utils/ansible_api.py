@@ -84,18 +84,14 @@ class AnsibleActions (object):
 
     @staticmethod
     def __wants_result_param (run_method):
-        if hasattr(inspect, "signature"):   # Python 3
-            params = inspect.signature(run_method).parameters
-            if len(params) < 4:
-                return False
-            elif params[list(params)[3]].default == inspect.Parameter.empty:
-                # Third parameter (besides self) is not optional
-                return True
-            else:
-                return False
-        else:    # Python 2
-            params = inspect.getargspec(run_method)
-            return len(params.args) - len(params.defaults) > 3
+        params = inspect.signature(run_method).parameters
+        if len(params) < 4:
+            return False
+        elif params[list(params)[3]].default == inspect.Parameter.empty:
+            # Third parameter (besides self) is not optional
+            return True
+        else:
+            return False
 
     def run_action (self, action_name, args):
         """Do what it takes with the Ansible API to get it to run the desired action.

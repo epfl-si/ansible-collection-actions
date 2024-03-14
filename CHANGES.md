@@ -1,5 +1,9 @@
 # Changelog for epfl_si.actions
 
+## version 0.4.0: minor feature and deprecation release
+
+- Drop support for Python 2. Version 0.3.1 is the last version that supports Python 2.
+
 ## version 0.3.1: minor bugfix release
 
 In 0.3.0, we forgout about `run_postcondition()` also being helpful to call from an AnsiballZ context. It now accepts both an `AnsibleCheckMode` instance and a plain old Boolean as its second argument.
