@@ -220,15 +220,16 @@ class AnsibleActions (object):
         from ansible import constants as C
         from ansible.errors import AnsibleError
 
-        templar = self.__caller_action._templar
-
         # As seen in ansible.executor.TaskExecutor._set_connection_options():
         useful_vars = C.config.get_plugin_vars(kind, obj._load_name)
         obj.set_options(
             task_keys=self.__caller_action._task.dump_attrs(),
-            var_options=dict((k, templar.template(cvars[k]))
+            var_options=dict((k, self.expand_var(cvars[k]))
                              for k in useful_vars
                              if k in cvars))
+
+    def expand_var (self, var):
+        return self.__caller_action._templar.template(var)
 
 
 class AnsibleCheckMode(object):

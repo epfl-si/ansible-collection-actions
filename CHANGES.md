@@ -3,6 +3,7 @@
 ## version 0.4.0: minor feature and deprecation release
 
 - Drop support for Python 2. Version 0.3.1 is the last version that supports Python 2.
+- Provide `ansible_api.expand_var()` to encapsulate the Jinja business (a.k.a. `templar` in the Ansible source code)
 - Tasks written on top of `epfl_si.actions.plugins.module_utils.ansible_api` may now observe variables (using the new optional argument `task_vars` to the decorated `run()` method), and change them before passing them to `ansible_api.run_action()`
 - Likewise, tasks may now create connections with customized Ansible variables by calling the `ansible_api.make_connection()` method and/or the `ansible_api.make_shell()` method, which the former invokes indirectly.
 
