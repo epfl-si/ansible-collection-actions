@@ -154,7 +154,10 @@ class AnsibleActions (object):
             loader=self.__caller_action._loader,
             templar=self.__caller_action._templar,
             shared_loader_obj=self.__caller_action._shared_loader_obj)
-        return sub_action.run(task_vars=self.__task_vars)
+        if sub_action:
+            return sub_action.run(task_vars=self.__task_vars)
+
+        raise AnsibleError("Unknown action or module: %s" % action_name)
 
     def make_connection (self, **vars_overrides):
         """Load and configure a Connection object like Ansible would.
