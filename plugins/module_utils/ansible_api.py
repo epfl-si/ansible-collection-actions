@@ -231,8 +231,14 @@ class AnsibleActions (object):
                              for k in useful_vars
                              if k in cvars))
 
-    def expand_var (self, var):
-        return self.__caller_action._templar.template(var)
+    def expand_var (self, var, overrides={}):
+        if overrides:
+            from ansible.template import Templar
+            templar = Templar(variables=self.__complete_vars(overrides),
+                              loader=self.__caller_action._loader)
+        else:
+            templar = self.__caller_action._templar
+        return templar.template(var)
 
 
 class AnsibleCheckMode(object):
