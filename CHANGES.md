@@ -1,5 +1,12 @@
 # Changelog for epfl_si.actions
 
+## version 1.0.0: breaking API change
+
+... and also I guess it was time for an 1.0 release.
+
+- `with AnsibleCheckMode(...).bypassed` is no longer supported, because it no longer works (... since 2019).
+- As a replacement, `run_action()` now has a `bypass_check_mode` optional parameter, which the `Subaction()` class sets on subaction invocations that credibly have no effect (i.e. `stat` and `command`, and then only when called with `.query()`)
+
 ## version 0.4.0: minor feature and deprecation release
 
 - Drop support for Python 2. Version 0.3.1 is the last version that supports Python 2.
