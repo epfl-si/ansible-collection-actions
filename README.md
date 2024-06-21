@@ -6,7 +6,7 @@ write Ansible action modules.
 
 ## `Subaction` Class
 
-This class encapsulates the calling of other Ansible actions from within your action module.
+This class encapsulates the calling of other Ansible actions from within your action module. It also knows the difference between a *query* (which never causes orange, and should run under `ansible-playbook --check`) and a *change* (which can, and shouldn't).
 
 The following example supports `ansible-playbook --check` without further ado:
 
@@ -48,7 +48,7 @@ module contains classes `AnsibleActions` and `AnsibleResults` and
 `AnsibleCheckMode` that will strive to keep a stable API, no matter
 what happens to the Ansible internals further down the road.
 
-- An `AnsibleActions` instance can be constructed using the `@AnsibleActions.run_method` decorator, as shown above. Such an instance encapsulates the `run_action` method, which lets one invoke an Ansible action directly (although this doesn't provide direct `--check` support, so it is often easier to go through a `Subaction` instance instead)
+- An `AnsibleActions` instance can be constructed using the `@AnsibleActions.run_method` decorator, as shown above. Such an instance encapsulates the `run_action` method, which lets one invoke an Ansible action directly (although note that if you want out-of-the-box `--check` support, consider going through a `Subaction` instance instead which has that as a feature)
 - An `AnsibleCheckMode` instance can be obtained from the `.check_mode` property of an `AnsibleActions` instance. It offers the `is_active` property to inspect Ansible's check mode.
 - The `AnsibleResults` “pure-static” class takes care of meddling with Ansible result dicts on your behalf.
 
