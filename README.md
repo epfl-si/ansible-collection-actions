@@ -49,7 +49,7 @@ module contains classes `AnsibleActions` and `AnsibleResults` and
 what happens to the Ansible internals further down the road.
 
 - An `AnsibleActions` instance can be constructed using the `@AnsibleActions.run_method` decorator, as shown above. Such an instance encapsulates the `run_action` method, which lets one invoke an Ansible action directly (although this doesn't provide direct `--check` support, so it is often easier to go through a `Subaction` instance instead)
-- An `AnsibleCheckMode` instance can be obtained from the `.check_mode` property of an `AnsibleActions` instance. It offers the `is_active` property to inspect Ansible's check mode, and the `bypassed` method (suited for `with` blocks) to temporarily bypass it and e.g. still run actions for which you know that there is no side effects
+- An `AnsibleCheckMode` instance can be obtained from the `.check_mode` property of an `AnsibleActions` instance. It offers the `is_active` property to inspect Ansible's check mode.
 - The `AnsibleResults` “pure-static” class takes care of meddling with Ansible result dicts on your behalf.
 
 ## `Postcondition` Class

@@ -242,37 +242,14 @@ class AnsibleActions (object):
 
 
 class AnsibleCheckMode(object):
-    """API for querying / setting Ansible's check mode."""
+    """API for querying Ansible's check mode."""
 
     def __init__ (self, caller_action, task_vars):
         self.__task_vars = task_vars
-        self.__play_context = caller_action._play_context
 
     @property
     def is_active (self):
         return self.__task_vars.get('ansible_check_mode', False)
-
-    @property
-    def bypassed (self):
-        """`with` handler for actions that we do want to run, even in check mode.
-
-        Within a `with api.check_mode.bypassed` block, Ansible's check mode is
-        temporarily bypassed, so that one can run read-only sub-actions.
-        """
-
-        class AnsibleCheckModeBypassed(object):
-            def __init__ (self, play_context):
-                self.__play_context = play_context
-
-            def __enter__ (self):
-                self.__saved_check_mode =  self.__play_context.check_mode
-                self.__play_context.check_mode = False  # Meaning that yes, it supports check mode
-
-            def __exit__ (self, *unused_exception_state):
-                self.__play_context.check_mode = self.__saved_check_mode
-
-        return AnsibleCheckModeBypassed(self.__play_context)
-
 
 def _pure_static (self):
     raise NotImplementedError(
