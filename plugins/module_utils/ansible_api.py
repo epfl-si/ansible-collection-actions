@@ -109,7 +109,8 @@ class AnsibleActions (object):
         params = inspect.signature(run_method).parameters
         return set(list(params)[3:])
 
-    def run_action (self, action_name, args, vars=None, connection=None):
+    def run_action (self, action_name, args, vars=None, connection=None,
+                    bypass_check_mode=None):
         """Do what it takes with the Ansible API to get it to run the desired action.
 
         :param action_name: The name of an Ansible action module, whether bundled with Ansible
@@ -122,6 +123,7 @@ class AnsibleActions (object):
         :param vars: The dict of Ansible vars that the action to run should see. By
                      default, pass “our” vars (the ones passed to the caller).
         :param connection: A specific Ansible connection object to use instead of the caller's default one.
+        :param bypass_check_mode: If set to True, force Ansible to actually run the task regardless of the current setting for `_ansible_check_mode`.
         :return: The Ansible result dict for the underlying action
         """
         from ansible.errors import AnsibleError
@@ -129,6 +131,9 @@ class AnsibleActions (object):
             # Plan A
             # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
             action = copy.copy(self.__caller_action)
+            action._task = copy.copy(action._task)
+            if bypass_check_mode:
+                action._task.check_mode = False
             if connection is not None:
                 action._connection = connection
             return action._execute_module(
@@ -143,6 +148,8 @@ class AnsibleActions (object):
         # Maybe action_name designates a "user-defined" action module
         # Retry through self._shared_loader_obj
         new_task = self.__caller_action._task.copy()
+        if bypass_check_mode:
+            new_task.check_mode = False
         new_task.args = copy.deepcopy(args)
 
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(

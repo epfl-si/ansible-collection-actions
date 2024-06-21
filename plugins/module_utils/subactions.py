@@ -68,8 +68,8 @@ class Subaction (object):
         :param failed_when: An optional function that takes the result and returns
             a truthy value iff the action failed
         """
-        def run_and_update_result (self):
-            query_result = self.__ansible.run_action(action_name, args)
+        def run_and_update_result (self, bypass_check_mode=None):
+            query_result = self.__ansible.run_action(action_name, args, bypass_check_mode=bypass_check_mode)
             error = self._redress_failure(query_result, failed_when)
             if self.result is not None:
                 AnsibleResults.update(self.result, AnsibleResults.unchanged(query_result))
@@ -80,8 +80,7 @@ class Subaction (object):
 
         if (self.__ansible.check_mode.is_active and
             self._may_run_in_check_mode(action_name, args)):
-            with self.__ansible.check_mode.bypassed:
-                return run_and_update_result(self)
+            return run_and_update_result(self, bypass_check_mode=True)
         else:
             return run_and_update_result(self)
 
