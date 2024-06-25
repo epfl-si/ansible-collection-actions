@@ -220,10 +220,11 @@ class AnsibleActions (object):
         self.__configure_loaded_object("shell", shell, cvars)
         return shell
 
-    def __complete_vars (self, vars_overrides):
+    def __complete_vars (self, defaults, overrides):
         cvars = {}
+        cvars.update(defaults)
         cvars.update(self.__task_vars)
-        cvars.update(vars_overrides)
+        cvars.update(overrides)
         return cvars
 
     def __configure_loaded_object (self, kind, obj, cvars):
@@ -238,10 +239,10 @@ class AnsibleActions (object):
                              for k in useful_vars
                              if k in cvars))
 
-    def expand_var (self, var, overrides={}):
-        if overrides:
+    def expand_var (self, var, overrides={}, defaults={}):
+        if overrides or defaults:
             from ansible.template import Templar
-            templar = Templar(variables=self.__complete_vars(overrides),
+            templar = Templar(variables=self.__complete_vars(defaults, overrides),
                               loader=self.__caller_action._loader)
         else:
             templar = self.__caller_action._templar
