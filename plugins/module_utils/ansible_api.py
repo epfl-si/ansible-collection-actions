@@ -127,26 +127,8 @@ class AnsibleActions (object):
         :return: The Ansible result dict for the underlying action
         """
         from ansible.errors import AnsibleError
-        try:
-            # Plan A
-            # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
-            action = copy.copy(self.__caller_action)
-            action._task = copy.copy(action._task)
-            if bypass_check_mode:
-                action._task.check_mode = False
-            if connection is not None:
-                action._connection = connection
-            return action._execute_module(
-                module_name=action_name,
-                module_args=args,
-                task_vars=vars if vars is not None else self.__task_vars)
-        except AnsibleError as e:
-            if not e.message.endswith('was not found in configured module paths'):
-                raise e
 
-        # Plan B
-        # Maybe action_name designates a "user-defined" action module
-        # Retry through self._shared_loader_obj
+        # Plan A: call an action module
         new_task = self.__caller_action._task.copy()
         if bypass_check_mode:
             new_task.check_mode = False
@@ -163,6 +145,23 @@ class AnsibleActions (object):
             shared_loader_obj=self.__caller_action._shared_loader_obj)
         if sub_action:
             return sub_action.run(task_vars=self.__task_vars)
+
+        try:
+            # Plan B: call a module i.e. upload and run some Python code (“AnsiballZ”) over the connection
+            # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
+            action = copy.copy(self.__caller_action)
+            action._task = copy.copy(action._task)
+            if bypass_check_mode:
+                action._task.check_mode = False
+            if connection is not None:
+                action._connection = connection
+            return action._execute_module(
+                module_name=action_name,
+                module_args=args,
+                task_vars=vars if vars is not None else self.__task_vars)
+        except AnsibleError as e:
+            if not e.message.endswith('was not found in configured module paths'):
+                raise e
 
         raise AnsibleError("Unknown action or module: %s" % action_name)
 
