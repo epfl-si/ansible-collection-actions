@@ -1,5 +1,10 @@
 # Changelog for epfl_si.actions
 
+## version 1.1.0: major bugfix and minor feature release
+
+- When an action (such as `ansible.builtin.copy`) shadows a module (i.e. the core of an AnsiballZ) with the same name, we want to run the former rather than the latter. Previous versions did the incorrect thing, i.e. the other way around.
+- Ability to pass `defaults` to `ansible_api.expand_var()`, which is basically the opposite of `overrides` priority-wise (i.e. values in `defaults` “underride” the user-set variables)
+
 ## version 1.0.0: breaking API change
 
 ... and also I guess it was time for an 1.0 release.
