@@ -12,7 +12,7 @@ The following example supports `ansible-playbook --check` without further ado:
 
 ```python
 from ansible.plugins.action import ActionBase
-from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import Subaction
+from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import AnsibleActions, Subaction
 
 class MyAction (ActionBase):
     @AnsibleActions.run_method
@@ -61,7 +61,7 @@ willing to throw some OO into the mix:
 
 from ansible.plugins.action import ActionBase
 from ansible_collections.epfl_si.actions.plugins.module_utils.subactions import Subaction
-from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleResults
+from ansible_collections.epfl_si.actions.plugins.module_utils.ansible_api import AnsibleActions, AnsibleResults
 from ansible_collections.epfl_si.actions.plugins.module_utils.postconditions import run_postcondition, Postcondition
 
 class MyAction (ActionBase):
