@@ -34,23 +34,13 @@ class Subaction (object):
     instances of Subaction.)
     """
 
-    def __init__ (self, *args, **kwargs):
+    def __init__ (self, ansible_api):
         self.result = None
 
-        def init_new_calling_convention (self, ansible_api):
-            if isinstance(ansible_api, AnsibleActions):
-                self.__ansible = ansible_api
-            else:
-                raise TypeError
-
-        def init_old_calling_convention (self, caller, task_vars):
-            """Supported for backwargs compatibility until 1.0 release."""
-            self.__ansible = AnsibleActions(caller, task_vars)
-
-        try:
-            init_new_calling_convention(self, *args, **kwargs)
-        except TypeError:
-            init_old_calling_convention(self, *args, **kwargs)
+        if isinstance(ansible_api, AnsibleActions):
+            self.__ansible = ansible_api
+        else:
+            raise TypeError
 
     def query (self, action_name, args, failed_when=None):
         """Execute a read-only Ansible sub-action.
