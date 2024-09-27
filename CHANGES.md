@@ -3,6 +3,8 @@
 ## version 2.0.0: breaking API change
 
 - `Subactions` constructor no longer accepts `task_vars` as an argument
+- `shell` may be used in a `query` subaction under the same caveats as `command`
+
 ## version 1.1.0: major bugfix and minor feature release
 
 - When an action (such as `ansible.builtin.copy`) shadows a module (i.e. the core of an AnsiballZ) with the same name, we want to run the former rather than the latter. Previous versions did the incorrect thing, i.e. the other way around.

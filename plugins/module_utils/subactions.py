@@ -45,13 +45,13 @@ class Subaction (object):
     def query (self, action_name, args, failed_when=None):
         """Execute a read-only Ansible sub-action.
 
-        Only a cursory sanity check is performed on `action_name`; this
-        method has is no way to tell if e.g. your `command` invocation
-        is indeed read-only (although it should be; otherwise consider
-        using the `change` method instead).
-
         If check mode is active (i.e. `ansible-playbook --check`), this action
         will still run.
+
+        Only a cursory sanity check is performed on `action_name`;
+        this method has is no way to tell if e.g. your `command` or
+        `shell` invocation is indeed read-only (although it should be;
+        otherwise consider using the `change` method instead).
 
         :param action_name: Ansible module name to use
         :param args: dict with arguments to give to module
@@ -76,7 +76,7 @@ class Subaction (object):
 
     def _may_run_in_check_mode (self, action_name, args):
         """True iff this action is safe to run in Ansible's check mode (i.e., it is read only)."""
-        return action_name in ("command", "stat")
+        return action_name in ("command", "shell", "stat")
 
     def _is_check_mode_active (self):
         """Obsolete, please use ansible_api.AnsibleActions.check_mode.is_active instead."""
