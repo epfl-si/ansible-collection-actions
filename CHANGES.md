@@ -1,5 +1,9 @@
 # Changelog for epfl_si.actions
 
+## version 2.0.1: minor feature release
+
+- Ability to pass supplemental parameters to `ansible_api.run_action()` through the `Subaction` class
+
 ## version 2.0.0: breaking API change
 
 - `Subactions` constructor no longer accepts `task_vars` as an argument

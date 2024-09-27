@@ -42,7 +42,7 @@ class Subaction (object):
         else:
             raise TypeError
 
-    def query (self, action_name, args, failed_when=None):
+    def query (self, action_name, args, failed_when=None, **run_action_kwargs):
         """Execute a read-only Ansible sub-action.
 
         If check mode is active (i.e. `ansible-playbook --check`), this action
@@ -57,9 +57,14 @@ class Subaction (object):
         :param args: dict with arguments to give to module
         :param failed_when: An optional function that takes the result and returns
             a truthy value iff the action failed
+        :param **run_action_kwargs: Passed as-is to the
+            `AnsibleActions().run_action()` method
+
         """
         def run_and_update_result (self, bypass_check_mode=None):
-            query_result = self.__ansible.run_action(action_name, args, bypass_check_mode=bypass_check_mode)
+            query_result = self.__ansible.run_action(
+                action_name, args, bypass_check_mode=bypass_check_mode,
+                **run_action_kwargs)
             error = self._redress_failure(query_result, failed_when)
             if self.result is not None:
                 AnsibleResults.update(self.result, AnsibleResults.unchanged(query_result))
@@ -82,7 +87,8 @@ class Subaction (object):
         """Obsolete, please use ansible_api.AnsibleActions.check_mode.is_active instead."""
         return self.__ansible.check_mode.is_active
 
-    def change (self, action_name, args, failed_when=None, update_result=None):
+    def change (self, action_name, args, failed_when=None, update_result=None,
+                **run_action_kwargs):
         """Execute an effectful Ansible sub-action.
 
         If check mode is active (i.e. ansible-playbook --check), nothing
@@ -94,6 +100,8 @@ class Subaction (object):
         :param failed_when: An optional function that takes the result and returns
             a truthy value iff the action failed
         :param update_result: Obsolete, set the `result` object property instead
+        :param **run_action_kwargs: Passed as-is to the
+            `AnsibleActions().run_action()` method
 
         :return: The Ansible result dict for the underlying action if update_result was None;
                  or the (changed) update_result parameter otherwise
@@ -102,7 +110,9 @@ class Subaction (object):
             # Simulate "orange" condition, but don't actually do it
             result = dict(changed=True)
         else:
-            result = self.__ansible.run_action(action_name, args)
+            result = self.__ansible.run_action(
+                action_name, args,
+                **run_action_kwargs)
 
         error = self._redress_failure(result, failed_when)
 
