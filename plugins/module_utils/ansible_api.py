@@ -176,7 +176,7 @@ class AnsibleActions (object):
         Ansible task that you want to change the connection (or shell) details
         of, e.g. `ansible_connection="oc"`, `ansible_remote_tmp="/tmp"` etc.
         """
-        cvars = self.__complete_vars(vars_overrides)
+        cvars = self.__complete_vars({}, vars_overrides)
 
         conn_type = cvars.get("ansible_connection")
         if conn_type is None:
@@ -205,7 +205,7 @@ class AnsibleActions (object):
         Ansible task that you want to change the shell details
         of, e.g. `ansible_remote_tmpdir="/tmp"` etc.
         """
-        cvars = self.__complete_vars(vars_overrides)
+        cvars = self.__complete_vars({}, vars_overrides)
 
         shell_type = cvars.get('ansible_shell_type', 'sh')
 
