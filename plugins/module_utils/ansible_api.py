@@ -134,6 +134,11 @@ class AnsibleActions (object):
             new_task.check_mode = False
         new_task.args = copy.deepcopy(args)
 
+        if vars is not None:
+            task_vars = vars
+        else:
+            task_vars = self.__task_vars
+
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
             action_name,
             task=new_task,
@@ -144,7 +149,7 @@ class AnsibleActions (object):
             templar=self.__caller_action._templar,
             shared_loader_obj=self.__caller_action._shared_loader_obj)
         if sub_action:
-            return sub_action.run(task_vars=self.__task_vars)
+            return sub_action.run(task_vars=task_vars)
 
         try:
             # Plan B: call a module i.e. upload and run some Python code (“AnsiballZ”) over the connection
@@ -158,7 +163,7 @@ class AnsibleActions (object):
             return action._execute_module(
                 module_name=action_name,
                 module_args=args,
-                task_vars=vars if vars is not None else self.__task_vars)
+                task_vars=task_vars)
         except AnsibleError as e:
             if not e.message.endswith('was not found in configured module paths'):
                 raise e
@@ -175,6 +180,11 @@ class AnsibleActions (object):
         :param **vars_overrides: Variables that you would set on an
         Ansible task that you want to change the connection (or shell) details
         of, e.g. `ansible_connection="oc"`, `ansible_remote_tmp="/tmp"` etc.
+
+        Note that `ansible_python_interpreter` is *not* read out of
+        the connection object (as Ansible presumes that that is
+        invariable per host). If you want to alter this setting temporarily
+        (e.g. to run one local action), then you need to 
         """
         cvars = self.__complete_vars({}, vars_overrides)
 

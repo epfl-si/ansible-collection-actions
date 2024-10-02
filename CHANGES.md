@@ -3,6 +3,7 @@
 ## version 2.0.1: minor feature release
 
 - Introduce `ansible_api.has_var()` method
+- Fix variable transmission in ``
 - Ability to pass supplemental parameters to `ansible_api.run_action()` through the `Subaction` class
 
 ## version 2.0.0: breaking API change
