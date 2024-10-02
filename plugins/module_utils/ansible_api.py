@@ -109,8 +109,8 @@ class AnsibleActions (object):
         params = inspect.signature(run_method).parameters
         return set(list(params)[3:])
 
-    def run_action (self, action_name, args, vars=None, connection=None,
-                    bypass_check_mode=None):
+    def run_action (self, action_name, args, vars=None, defaults={}, overrides={},
+                    connection=None, bypass_check_mode=None):
         """Do what it takes with the Ansible API to get it to run the desired action.
 
         :param action_name: The name of an Ansible action module, whether bundled with Ansible
@@ -122,6 +122,10 @@ class AnsibleActions (object):
 
         :param vars: The dict of Ansible vars that the action to run should see. By
                      default, pass “our” vars (the ones passed to the caller).
+        :param defaults: A dict of Ansible vars that should be set, unless they are already
+                         set by the caller task. Incompatible with `vars`.
+        :param overrides: A dict of Ansible vars that should be set, *regardless* of whether
+                         they are already set by the caller task. Incompatible with `vars`.
         :param connection: A specific Ansible connection object to use instead of the caller's default one.
         :param bypass_check_mode: If set to True, force Ansible to actually run the task regardless of the current setting for `_ansible_check_mode`.
         :return: The Ansible result dict for the underlying action
@@ -137,7 +141,7 @@ class AnsibleActions (object):
         if vars is not None:
             task_vars = vars
         else:
-            task_vars = self.__task_vars
+            task_vars = self.__complete_vars(defaults, overrides)
 
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
             action_name,
