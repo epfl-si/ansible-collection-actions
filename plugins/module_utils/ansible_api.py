@@ -238,6 +238,9 @@ class AnsibleActions (object):
                              for k in useful_vars
                              if k in cvars))
 
+    def has_var (self, var):
+        return var in self.__task_vars
+
     def expand_var (self, var, overrides={}, defaults={}):
         if overrides or defaults:
             from ansible.template import Templar
