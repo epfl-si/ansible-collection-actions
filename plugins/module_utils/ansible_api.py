@@ -186,9 +186,10 @@ class AnsibleActions (object):
         of, e.g. `ansible_connection="oc"`, `ansible_remote_tmp="/tmp"` etc.
 
         Note that `ansible_python_interpreter` is *not* read out of
-        the connection object (as Ansible presumes that that is
+        the connection object (as Ansible assumes that that is
         invariable per host). If you want to alter this setting temporarily
-        (e.g. to run one local action), then you need to 
+        (e.g. to run one local action), then you need to pass that variable
+        to `run_action` as well.
         """
         cvars = self.__complete_vars({}, vars_overrides)
 
