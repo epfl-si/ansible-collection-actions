@@ -302,7 +302,7 @@ class AnsibleResults(object):
         old_result = copy.deepcopy(result)
         result.update(new_result)
 
-        def _keep_flag_truthy (flag_name):
+        def _merge_boolean_with_or (flag_name):
             if (flag_name in old_result and
                 old_result[flag_name] and
                 flag_name in result and
@@ -310,8 +310,8 @@ class AnsibleResults(object):
             ):
                 result[flag_name] = old_result[flag_name]
 
-        _keep_flag_truthy('changed')
-        _keep_flag_truthy('failed')
+        _merge_boolean_with_or('changed')
+        _merge_boolean_with_or('failed')
 
     @classmethod
     def unchanged (cls, result):
