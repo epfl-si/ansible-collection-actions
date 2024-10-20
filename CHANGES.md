@@ -1,5 +1,9 @@
 # Changelog for epfl_si.actions
 
+## version 2.1.0: major feature release
+
+- When calling `run_action`, Ansible variables that require setting up a new connection object (such as `ansible_connection`, `ansible_user`) etc. (conservatively and) automatically cause a new connection to be created. It follows that the `make_connection` and `make_shell` APIs are obsolete.
+
 ## version 2.0.2: minor bugfix release
 
 - Fix the case of `delegate_to:` tasks calling action plugins that in turn, pass a custom `connection` object to `run_action`

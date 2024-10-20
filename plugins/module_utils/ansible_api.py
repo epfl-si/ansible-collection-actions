@@ -3,6 +3,7 @@ Encapsulations for the subset of the Ansible API that is useful when writing act
 """
 
 import inspect
+import itertools
 import os
 
 # There is a name clash with a module in Ansible named "copy":
@@ -126,19 +127,29 @@ class AnsibleActions (object):
                          set by the caller task. Incompatible with `vars`.
         :param overrides: A dict of Ansible vars that should be set, *regardless* of whether
                          they are already set by the caller task. Incompatible with `vars`.
-        :param connection: A specific Ansible connection object to use instead of the caller's default one.
         :param bypass_check_mode: If set to True, force Ansible to actually run the task regardless of the current setting for `_ansible_check_mode`.
+
+        :param connection: OBSOLETE — An Ansible connection object. 💡
+                           This is no longer required; overriding
+                           `ansible_connection`, `ansible_user` etc.
+                           using the `vars` or `overrides` parameters,
+                           now has the same effect.
+
         :return: The Ansible result dict for the underlying action
+
         """
         from ansible.errors import AnsibleError
-
-        if connection is None:
-            connection = self.__caller_action._connection
 
         if vars is not None:
             subtask_vars = vars
         else:
             subtask_vars = self.__complete_vars(defaults, overrides)
+
+        if connection is None:
+            if self._need_new_connection(subtask_vars):
+                connection = self.make_connection(**subtask_vars)
+            else:
+                connection = self.__caller_action._connection
 
         subtask = self.__caller_action._task.copy()
         subtask.is_subtask = True
@@ -187,8 +198,32 @@ class AnsibleActions (object):
 
         raise AnsibleError("Unknown action or module: %s" % action_name)
 
+    def _need_new_connection (self, other_vars):
+        """True “iff” `other_vars` requires making a new connection.
+
+        The scare quotes around “iff” mean that the returned Boolean
+        is an (upper) approximation of that statement. That is, when
+        in doubt, `_need_new_connection()` will err on the side of
+        caution and return True. The cost thereof is only inefficiency
+        (as in, missing the opportunity of re-using an open
+        connection), whereas the cost of erring in the opposite
+        direction would be incorrectness (as in, running, or
+        attempting to run the task in the wrong place).
+        """
+        vars1 = self.__task_vars
+        vars2 = other_vars
+
+        for k in itertools.chain(vars1.keys(), vars2.keys()):
+            if vars1.get(k, None) != vars2.get(k, None):
+                if k.startswith("ansible_"):  # We could be smarter here, and err less.
+                    return True
+
+        return False
+
     def make_connection (self, **vars_overrides):
-        """Load and configure a Connection object like Ansible would.
+        """OBSOLETE public API, do not call directly.
+
+        Load and configure a Connection object like Ansible would.
 
         The connection's shell (available as the return value's
         protected `._shell` property) will automatically be set to
@@ -227,7 +262,9 @@ class AnsibleActions (object):
         return connection
 
     def make_shell (self, **vars_overrides):
-        """Load and configure a Shell object like Ansible would.
+        """OBSOLETE public API, do not call directly.
+
+        Load and configure a Shell object like Ansible would.
 
         :param **vars_overrides: Variables that you would set on an
         Ansible task that you want to change the shell details
