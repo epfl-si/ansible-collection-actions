@@ -132,6 +132,9 @@ class AnsibleActions (object):
         """
         from ansible.errors import AnsibleError
 
+        if connection is None:
+            connection = self.__caller_action._connection
+
         # Plan A: call an action module
         new_task = self.__caller_action._task.copy()
         if bypass_check_mode:
@@ -146,8 +149,7 @@ class AnsibleActions (object):
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
             action_name,
             task=new_task,
-            connection=(connection if connection is not None
-                        else self.__caller_action._connection),
+            connection=connection,
             play_context=self.__caller_action._play_context,
             loader=self.__caller_action._loader,
             templar=self.__caller_action._templar,
@@ -162,8 +164,7 @@ class AnsibleActions (object):
             action._task = copy.copy(action._task)
             if bypass_check_mode:
                 action._task.check_mode = False
-            if connection is not None:
-                action._connection = connection
+            action._connection = connection
             return action._execute_module(
                 module_name=action_name,
                 module_args=args,
