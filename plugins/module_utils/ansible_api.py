@@ -145,6 +145,19 @@ class AnsibleActions (object):
         if bypass_check_mode:
             subtask.check_mode = False
         subtask.args = copy.deepcopy(args)
+        # The “delegate_to” buck stops here. That is, if the caller
+        # task is delegated, we are already “running on” the
+        # delegate's substituted variables, including e.g.
+        # `ansible_connection`, `ansible_user` etc.
+        #
+        # There is no need for the
+        # `ansible.plugins.action.ActionBase._configure_module` method
+        # to muddy the waters by attempting that substitution again.
+        # That would be a no-op at best; and in the case where we are
+        # being passed a custom `connection` object, it would be
+        # ignored outright (as the relevant variables would revert to
+        # their values from `ansible_delegated_vars`).
+        subtask.delegate_to = None
 
         # Plan A: call an action module
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(

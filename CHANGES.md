@@ -1,5 +1,9 @@
 # Changelog for epfl_si.actions
 
+## version 2.0.1: minor bugfix release
+
+- Fix the case of `delegate_to:` tasks calling action plugins that in turn, pass a custom `connection` object to `run_action`
+
 ## version 2.0.1: minor feature release
 
 - Introduce `ansible_api.has_var()` method
