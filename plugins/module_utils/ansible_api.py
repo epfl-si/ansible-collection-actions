@@ -135,20 +135,21 @@ class AnsibleActions (object):
         if connection is None:
             connection = self.__caller_action._connection
 
-        # Plan A: call an action module
-        new_task = self.__caller_action._task.copy()
-        if bypass_check_mode:
-            new_task.check_mode = False
-        new_task.args = copy.deepcopy(args)
-
         if vars is not None:
             task_vars = vars
         else:
             task_vars = self.__complete_vars(defaults, overrides)
 
+        subtask = self.__caller_action._task.copy()
+        subtask.is_subtask = True
+        if bypass_check_mode:
+            subtask.check_mode = False
+        subtask.args = copy.deepcopy(args)
+
+        # Plan A: call an action module
         sub_action = self.__caller_action._shared_loader_obj.action_loader.get(
             action_name,
-            task=new_task,
+            task=subtask,
             connection=connection,
             play_context=self.__caller_action._play_context,
             loader=self.__caller_action._loader,
@@ -161,9 +162,7 @@ class AnsibleActions (object):
             # Plan B: call a module i.e. upload and run some Python code (“AnsiballZ”) over the connection
             # https://www.ansible.com/blog/how-to-extend-ansible-through-plugins at "Action Plugins"
             action = copy.copy(self.__caller_action)
-            action._task = copy.copy(action._task)
-            if bypass_check_mode:
-                action._task.check_mode = False
+            action._task = subtask
             action._connection = connection
             return action._execute_module(
                 module_name=action_name,
