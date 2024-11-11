@@ -2,9 +2,12 @@
 Encapsulations for the subset of the Ansible API that is useful when writing action modules.
 """
 
+from functools import cached_property
 import inspect
 import itertools
 import os
+
+from ansible.template import Templar
 
 # There is a name clash with a module in Ansible named "copy":
 copy = __import__('copy')
@@ -17,11 +20,12 @@ class AnsibleActions (object):
     `ansible.plugins.action.ActionBase`, sans the wonky calling
     conventions, the inheritance-that-breaks-encapsulation, and the
     variables being passed around from method to method for no real
-    reason (such as `task_vars`).
+    reason (such as the task variables dict).
 
     Public attributes:
 
        check_mode: An instance of AnsibleCheckMode
+
     """
     def __init__ (self, action, task_vars):
         """Constructor.
@@ -42,14 +46,19 @@ class AnsibleActions (object):
            action: The action instance in play (typically belonging to
              your own subclass of `ansible.plugins.action.ActionBase`,
              and that makes use of the `run_method` wrapper)
-           task_vars: The variables that Ansible passed to your action
-             class. After construction, a `deepcopy` of it will be
-             available as the `.task_vars` public attribute.
+           task_vars: The dict of variables that Ansible passed to your
+             action class. After construction, a `deepcopy` of it (or
+             those of a sibling host, if `delegate_to` is in play)
+             will be available as the `.jinja.vars` public attribute.
+
+        Public fields:
+           jinja: holds an `AnsibleJinja` instance.
+           check_mode: holds an `AnsibleCheckMode` instance.
         """
 
         self.__caller_action = action
-        self.__task_vars = task_vars
-        self.check_mode = AnsibleCheckMode(action, task_vars)
+        self.jinja = AnsibleJinja(action._loader, task_vars)
+        self.check_mode = AnsibleCheckMode(action, self.jinja)
 
     @classmethod
     def run_method (cls, run_method):
@@ -143,13 +152,14 @@ class AnsibleActions (object):
         from ansible.errors import AnsibleError
 
         if vars is not None:
-            subtask_vars = vars
+            sub_jinja = self.jinja
         else:
-            subtask_vars = self.__complete_vars(defaults, overrides)
+            sub_jinja = self.jinja.complete_vars(
+                defaults, overrides)
 
         if connection is None:
-            if self._need_new_connection(subtask_vars):
-                connection = self.make_connection(**subtask_vars)
+            if self._need_new_connection(sub_jinja):
+                connection = self.make_connection(**sub_jinja.vars)
             else:
                 connection = self.__caller_action._connection
 
@@ -182,7 +192,7 @@ class AnsibleActions (object):
             templar=self.__caller_action._templar,
             shared_loader_obj=self.__caller_action._shared_loader_obj)
         if sub_action:
-            return sub_action.run(task_vars=subtask_vars)
+            return sub_action.run(task_vars=sub_jinja.vars)
 
         try:
             # Plan B: call a module i.e. upload and run some Python code (“AnsiballZ”) over the connection
@@ -193,14 +203,14 @@ class AnsibleActions (object):
             return action._execute_module(
                 module_name=action_name,
                 module_args=args,
-                task_vars=subtask_vars)
+                task_vars=sub_jinja.vars)
         except AnsibleError as e:
             if not e.message.endswith('was not found in configured module paths'):
                 raise e
 
         raise AnsibleError("Unknown action or module: %s" % action_name)
 
-    def _need_new_connection (self, other_vars):
+    def _need_new_connection (self, other_jinja):
         """True “iff” `other_vars` requires making a new connection.
 
         The scare quotes around “iff” mean that the returned Boolean
@@ -212,8 +222,8 @@ class AnsibleActions (object):
         direction would be incorrectness (as in, running, or
         attempting to run the task in the wrong place).
         """
-        vars1 = self.__task_vars
-        vars2 = other_vars
+        vars1 = self.jinja.vars
+        vars2 = other_jinja.vars
 
         for k in itertools.chain(vars1.keys(), vars2.keys()):
             if vars1.get(k, None) != vars2.get(k, None):
@@ -241,9 +251,9 @@ class AnsibleActions (object):
         (e.g. to run one local action), then you need to pass that variable
         to `run_action` as well.
         """
-        cvars = self.__complete_vars({}, vars_overrides)
+        jinja = self.jinja.complete_vars(overrides=vars_overrides)
 
-        conn_type = cvars.get("ansible_connection")
+        conn_type = jinja.vars.get("ansible_connection")
         if conn_type is None:
             # As seen in ansible.executor.TaskExecutor._get_connection():
             conn_type = self.__caller_action._play_context.connection
@@ -260,7 +270,7 @@ class AnsibleActions (object):
             raise AnsibleError("the connection plugin '%s' was not found" %
                                conn_type)
 
-        self.__configure_loaded_object("connection", connection, cvars)
+        self.__configure_loaded_object("connection", connection, jinja)
         return connection
 
     def make_shell (self, **vars_overrides):
@@ -272,9 +282,9 @@ class AnsibleActions (object):
         Ansible task that you want to change the shell details
         of, e.g. `ansible_remote_tmpdir="/tmp"` etc.
         """
-        cvars = self.__complete_vars({}, vars_overrides)
+        jinja = self.jinja.complete_vars(overrides=vars_overrides)
 
-        shell_type = cvars.get('ansible_shell_type', 'sh')
+        shell_type = jinja.expand('{{ ansible_shell_type | default("sh") }}')
 
         shared_loader_obj = self.__caller_action._shared_loader_obj
         shell, unused = shared_loader_obj.shell_loader.get_with_context(
@@ -283,17 +293,10 @@ class AnsibleActions (object):
             raise AnsibleError("the shell plugin '%s' was not found" %
                                shell_type)
 
-        self.__configure_loaded_object("shell", shell, cvars)
+        self.__configure_loaded_object("shell", shell, jinja)
         return shell
 
-    def __complete_vars (self, defaults, overrides):
-        cvars = {}
-        cvars.update(defaults)
-        cvars.update(self.__task_vars)
-        cvars.update(overrides)
-        return cvars
-
-    def __configure_loaded_object (self, kind, obj, cvars):
+    def __configure_loaded_object (self, kind, obj, jinja):
         from ansible import constants as C
         from ansible.errors import AnsibleError
 
@@ -301,37 +304,79 @@ class AnsibleActions (object):
         useful_vars = C.config.get_plugin_vars(kind, obj._load_name)
         obj.set_options(
             task_keys=self.__caller_action._task.dump_attrs(),
-            var_options=dict((k, self.expand_var(cvars[k]))
+            var_options=dict((k, self.jinja.expand('{{ %s }}' % jinja.vars[k]))
                              for k in useful_vars
-                             if k in cvars))
+                             if k in jinja.vars))
 
     def has_var (self, var):
-        return var in self.__task_vars
+        return var in self.jinja.vars
 
     def expand_var (self, var, overrides={}, defaults={}):
-        if overrides or defaults:
-            from ansible.template import Templar
-            templar = Templar(variables=self.__complete_vars(defaults, overrides),
-                              loader=self.__caller_action._loader)
-        else:
-            templar = self.__caller_action._templar
-        return templar.template(var)
+        """OBSOLETE, use `.jinja.expand` instead."""
+        return self.jinja.complete_vars(
+            defaults=defaults, overrides=overrides).expand(var)
+
+
+__not_set = object()
+
+
+class AnsibleJinja (object):
+    """Easy access to Ansible's Jinja expansion features.
+
+    Encapsulates an Ansible `Templar` instance, with its bag of Ansible
+    variables.
+    """
+
+    def __init__ (self, loader, vars):
+        self.loader = loader
+        self.vars = copy.deepcopy(vars)
+
+    @cached_property
+    def _templar (self):
+        return Templar(self.loader, self.vars)
+
+    def complete_vars (self, overrides={}, defaults={}):
+        """Complete Jinja variables and return a new object.
+
+        Arguments:
+          overrides: Variables that should be set, regardless of their
+            current values in `self.vars`
+          defaults: Variables to set only if they aren't currently set
+            in `self.vars` (nor in `overrides` if both parameters are passed
+            at the same time)
+
+        Returns: A copy of self with the `.vars` changed as specified;
+          or just `self` if the changes have no effect.
+        """
+        if not (overrides or defaults):
+            return self
+
+        cvars = {}
+        cvars.update(defaults)
+        cvars.update(self.vars)
+        cvars.update(overrides)
+        return self.__class__(self.loader, cvars)
+
+    def expand (self, expr, **templar_kwargs):
+        return self._templar.template(expr, **templar_kwargs)
 
 
 class AnsibleCheckMode(object):
     """API for querying Ansible's check mode."""
 
-    def __init__ (self, caller_action, task_vars):
-        self.__task_vars = task_vars
+    def __init__ (self, caller_action, jinja):
+        self.__jinja = jinja
 
     @property
     def is_active (self):
-        return self.__task_vars.get('ansible_check_mode', False)
+        return self.__jinja.expand('{{ ansible_check_mode | default(False) }}')
+
 
 def _pure_static (self):
     raise NotImplementedError(
         "%s is a pure-static class; instances may not be constructed" %
         self.__class__.__name__)
+
 
 class AnsibleResults(object):
     """Operations on the Ansible result dicts.
