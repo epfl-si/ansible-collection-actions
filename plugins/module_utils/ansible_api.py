@@ -15,7 +15,9 @@ class AnsibleActions (object):
     An instance of this class contains all the API that should be
     useful e.g. to a class that derives from
     `ansible.plugins.action.ActionBase`, sans the wonky calling
-    conventions and the inheritance-that-breaks-encapsulation.
+    conventions, the inheritance-that-breaks-encapsulation, and the
+    variables being passed around from method to method for no real
+    reason (such as `task_vars`).
 
     Public attributes:
 
