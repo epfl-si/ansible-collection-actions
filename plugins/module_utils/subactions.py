@@ -148,9 +148,13 @@ class Subaction (object):
             failed_when = lambda result: 'failed' in result
 
         if failed_when(result):
-            return AnsibleActionFail("Subaction failed: %s - Invoked with %s" % (
-                result.get('msg', '(no message)'),
+            msg = result.get('msg', '(no message)')
+            exn = AnsibleActionFail("Subaction failed: %s - Invoked with %s" % (
+                msg,
                 result.get('invocation', '(no invocation information)')))
+            if msg.startswith('MODULE FAILURE'):
+                AnsibleResults.update(exn.result, result)
+            return exn
 
         # We will be returning None; scrub failure evidence out of result to
         # prevent clueless callers (such as the Ansible core) from freaking out
