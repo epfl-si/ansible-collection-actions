@@ -1,1 +1,3 @@
 /*.tar.gz
+/.tox/
+__pycache__/
