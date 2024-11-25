@@ -1,0 +1,11 @@
+pytest
+
+# Sometimes the test doesn't work straight away and you need a debugger:
+# (and if you personally don't, well then congrats and feel free to comment
+# out that line)
+debugpy
+
+# It seems like someone is unable or unwilling to learn how to merge
+# text files in Python, so you have to restate these here:
+pytest-ansible
+pytest-xdist
