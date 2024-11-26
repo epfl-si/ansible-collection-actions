@@ -18,24 +18,25 @@ class MySumAction(ActionBase):
         b = self._task._args['b']
         return {"changed": False, "sum": a + b}
 
-def test_the_test_suite ():
-    task_yaml = """
+def describe_the_test_suite ():
+    def it_runs_actions ():
+        task_yaml = """
 name: Test Sum
 sum:
   a: 1
   b: 2
 """
 
-    runner = MockTaskRunner()
-    runner.inject_actions(sum=MySumAction)
-    result = runner.run_one_task(task_yaml)
-    import pprint; pprint.pprint(result)
-    assert result["sum"] == 3
+        runner = MockTaskRunner()
+        runner.inject_actions(sum=MySumAction)
+        result = runner.run_one_task(task_yaml)
+        import pprint; pprint.pprint(result)
+        assert result["sum"] == 3
 
-def test_forbidden_reentrant_use ():
-    try:
-        with RunActionMocker():
+    def it_refuses_to_do_the_reentrant ():
+        try:
             with RunActionMocker():
-                assert False, "we should not be allowed to nest these."
-    except TypeError:
-      pass
+                with RunActionMocker():
+                    assert False, "we should not be allowed to nest these."
+        except TypeError:
+            pass
