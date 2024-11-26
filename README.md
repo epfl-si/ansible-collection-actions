@@ -96,3 +96,9 @@ The `Postcondition` abstract base class
 - helps you separate concerns between *checking* the postcondition (in an overloaded `holds` method) and *enforcing* it (`enforce` method)
 - comes with an “executor” function, `run_postcondition` that takes care of calling the methods in the correct order, and computing the Ansible result thereof
 - when combined with `Subaction` as shown, lets you focus on writing your action and pretty much forget about the management of your action's own Ansible result dict
+
+# Developing
+
+## Running the Test Suite
+
+See instructions in [`tox.ini`](tox.ini)
