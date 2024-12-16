@@ -155,7 +155,7 @@ class AnsibleActions (object):
             sub_jinja = self.jinja
         else:
             sub_jinja = self.jinja.complete_vars(
-                defaults, overrides)
+                defaults=defaults, overrides=overrides)
 
         if connection is None:
             if self._need_new_connection(sub_jinja):
@@ -335,7 +335,7 @@ class AnsibleJinja (object):
     def _templar (self):
         return Templar(self.loader, self.vars)
 
-    def complete_vars (self, overrides={}, defaults={}):
+    def complete_vars (self, defaults={}, overrides={}):
         """Complete Jinja variables and return a new object.
 
         Arguments:
