@@ -8,6 +8,7 @@ import itertools
 import os
 
 from ansible.template import Templar
+from ansible.errors import AnsibleUndefinedVariable
 
 # There is a name clash with a module in Ansible named "copy":
 copy = __import__('copy')
@@ -358,7 +359,11 @@ class AnsibleJinja (object):
         return self.__class__(self.loader, cvars)
 
     def expand (self, expr, **templar_kwargs):
-        return self._templar.template(expr, **templar_kwargs)
+        try:
+            return self._templar.template(expr, **templar_kwargs)
+        except AnsibleUndefinedVariable as e:
+            e.message = 'in expression %s: %s' % (expr, e.message)
+            raise e
 
 
 class AnsibleCheckMode(object):
