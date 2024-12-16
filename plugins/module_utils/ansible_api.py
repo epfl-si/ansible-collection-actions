@@ -7,6 +7,7 @@ import inspect
 import itertools
 import os
 
+from ansible import constants as C
 from ansible.template import Templar
 from ansible.errors import AnsibleUndefinedVariable
 
@@ -271,7 +272,15 @@ class AnsibleActions (object):
             raise AnsibleError("the connection plugin '%s' was not found" %
                                conn_type)
 
-        self.__configure_loaded_object("connection", connection, jinja)
+        # As seen in ansible.executor.TaskExecutor._set_connection_options():
+        var_options = {}
+        for k in C.config.get_plugin_vars('connection', conn_type):
+            if k in jinja.vars:
+                var_options[k] = jinja.expand('{{ %s }}' % k)
+        connection.set_options(
+            task_keys=self.__caller_action._task.dump_attrs(),
+            var_options=var_options)
+
         return connection
 
     def make_shell (self, **vars_overrides):
@@ -294,20 +303,7 @@ class AnsibleActions (object):
             raise AnsibleError("the shell plugin '%s' was not found" %
                                shell_type)
 
-        self.__configure_loaded_object("shell", shell, jinja)
         return shell
-
-    def __configure_loaded_object (self, kind, obj, jinja):
-        from ansible import constants as C
-        from ansible.errors import AnsibleError
-
-        # As seen in ansible.executor.TaskExecutor._set_connection_options():
-        useful_vars = C.config.get_plugin_vars(kind, obj._load_name)
-        obj.set_options(
-            task_keys=self.__caller_action._task.dump_attrs(),
-            var_options=dict((k, self.jinja.expand('{{ %s }}' % jinja.vars[k]))
-                             for k in useful_vars
-                             if k in jinja.vars))
 
     def has_var (self, var):
         return var in self.jinja.vars
