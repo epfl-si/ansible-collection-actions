@@ -3,6 +3,9 @@
 ## version 2.1.0: major feature release
 
 - When calling `run_action`, Ansible variables that require setting up a new connection object (such as `ansible_connection`, `ansible_user`) etc. (conservatively and) automatically cause a new connection to be created. It follows that the `make_connection` and `make_shell` APIs are obsolete.
+- Introduce API to reify the Jinja machinery (accessible as the `.jinja` field of `AnsibleActions` instances)
+- Make exception messages (in particular, when using `.jinja.expand()` easier to debug
+- Introduce the first unit tests!!
 
 ## version 2.0.2: minor bugfix release
 
