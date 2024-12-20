@@ -166,7 +166,6 @@ class AnsibleActions (object):
                 connection = self.__caller_action._connection
 
         subtask = self.__caller_action._task.copy()
-        subtask.is_subtask = True
         if bypass_check_mode:
             subtask.check_mode = False
         subtask.args = copy.deepcopy(args)
