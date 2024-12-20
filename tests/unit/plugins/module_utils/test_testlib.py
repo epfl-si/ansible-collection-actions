@@ -30,7 +30,6 @@ sum:
         runner = MockTaskRunner()
         runner.inject_actions(sum=MySumAction)
         result = runner.run_one_task(task_yaml)
-        import pprint; pprint.pprint(result)
         assert result["sum"] == 3
 
     def it_refuses_to_do_the_reentrant ():
