@@ -20,6 +20,13 @@ from ansible.vars.manager import VariableManager
 logging.basicConfig(level=logging.DEBUG)
 
 
+def yaml_safe_load (thing):
+    if isinstance(thing, str):
+        return yaml.safe_load(thing)
+    else:
+        return thing
+
+
 class MockTaskRunner:
     """Run tasks as Ansible would."""
     def __init__ (self):
@@ -96,7 +103,7 @@ class AnsibleMocker:
         self._mock_task = task
 
     def make_task (self, task_yaml):
-        task = Task.load(yaml.safe_load(task_yaml))
+        task = Task.load(yaml_safe_load(task_yaml))
 
         task._connection = 'local'
 
