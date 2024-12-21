@@ -23,13 +23,31 @@ logging.basicConfig(level=logging.DEBUG)
 class MockTaskRunner:
     """Run tasks as Ansible would."""
     def __init__ (self):
-        self.injected_actions = {}
+        self._on_each_task = []
+
+    def on_each_task (self, callback):
+        """Add a thing to do whenever `run_one_task` takes control.
+
+        :param callback: A function that takes an instance of `AnsibleMock`,
+        typically to add / change its attributes.
+        """
+        self._on_each_task.append(callback)
 
     def inject_actions (self, **actions):
-        self.injected_actions = {**self.injected_actions, **actions}
+        for name, cls in actions.items():
+            def inject_this_action (mock):
+                mock.inject_action(name, cls)
+
+            self.on_each_task(inject_this_action)
 
     def run_one_task (self, task_yaml):
-        with RunActionMocker(injected_actions = self.injected_actions) as mock:
+        with AnsibleMocker() as mock:
+            for todo in self._on_each_task:
+                todo(mock)
+
+            # This needs to come *after* the self._on_each_task callbacks
+            # have run, because the mock task to create may be an instance
+            # of one of the injected actions:
             mock.task = mock.make_task(task_yaml)
 
             executor = TaskExecutor(
@@ -42,7 +60,7 @@ class MockTaskRunner:
             return executor.run()
 
 
-class RunActionMocker:
+class AnsibleMocker:
     """The bare minimum of mocking that gets `MockTaskRunner` to pass its tests."""
     # Yes, every single line of code in this indented block was indeed
     # challenged w/ YAGNI or replacing with a MagicMock. Be my guest,
@@ -50,72 +68,19 @@ class RunActionMocker:
     # request.
     _action_loader_orig = ansible_loader.action_loader
 
-    def __init__ (self, injected_actions={}):
+    def __init__ (self):
         if ansible_loader.action_loader is not self._action_loader_orig:
             raise TypeError("Illegal MockModuleLoader reentrant call")
+        self._injected_action_builders = {}
 
-        self.injected_actions = injected_actions
+        self.play_context = PlayContext()
+        self.inventory = MagicMock()
+        self.loader = MagicMock()
+        self.templar = MagicMock()
+        self.shared_loader_obj = ansible_loader  # We mock it in __enter__()
+        self.host = MagicMock()
 
-    def __enter__ (self):
-        self._patches = []
-
-        def empatch (where, new):
-            p = patch(where, new=new)
-            p.__enter__()
-            self._patches.append(p)
-
-        mocked_actions = self.MockActionLoader(
-            ansible_loader.action_loader, self._injected_action_builders)
-        for where in ('ansible.plugins.loader.action_loader',
-                      # Some places already did some variation of
-                      # `from ansible.plugins.loader import action_loader`
-                      # and we have to patch them in-place:
-                      'ansible.parsing.mod_args.action_loader'):
-                empatch(where, mocked_actions)
-
-        return self
-
-    @property
-    def _injected_action_builders (self):
-        """Like `self.injected_actions`, except the dict values are zero-parameter
-        functions that call the actual constructors with all their parameters
-        mocked out."""
-
-        def construct_action (cls):
-            return cls(
-                self.task, self.connection_object, self.play_context,
-                self.loader, self.templar, self.shared_loader_obj)
-
-        return { name : (lambda : construct_action(cls))
-                 for (name, cls) in self.injected_actions.items() }
-
-    @cached_property
-    def variable_manager (self):
-        return VariableManager(loader=self.loader, inventory=self.inventory)
-
-    @cached_property
-    def play_context (self):
-        return PlayContext()
-
-    @cached_property
-    def inventory (self):
-        return MagicMock()
-
-    @cached_property
-    def loader (self):
-        return MagicMock()
-
-    @cached_property
-    def templar (self):
-        return MagicMock()
-
-    @property
-    def shared_loader_obj (self):
-        return ansible_loader
-
-    @cached_property
-    def host (self):
-        return MagicMock()
+        self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
 
     @property
     def task (self):
@@ -141,15 +106,43 @@ class RunActionMocker:
 
         return task
 
-    @cached_property
-    def connection_object (self):
-        return LocalConnection(PlayContext())
+    def __enter__ (self):
+        self._patches = []
+
+        def empatch (where, new):
+            p = patch(where, new=new)
+            p.__enter__()
+            self._patches.append(p)
+
+        mocked_actions = self.ActionLoader(
+            ansible_loader.action_loader, self._injected_action_builders)
+        for where in ('ansible.plugins.loader.action_loader',
+                      # Some places already did some variation of
+                      # `from ansible.plugins.loader import action_loader`
+                      # and we have to patch them in-place:
+                      'ansible.parsing.mod_args.action_loader'):
+                empatch(where, mocked_actions)
+
+        return self
 
     def __exit__ (self, exn_type=None, exn_value=None, exn_traceback=None):
         for p in reversed(self._patches):
             p.__exit__(exn_type, exn_value, exn_traceback)
 
-    class MockActionLoader (PluginLoader):
+    def inject_action (self, name, cls):
+        def construct_action ():
+            return cls(
+                self.task, self.connection_object, self.play_context,
+                self.loader, self.templar,
+                self.shared_loader_obj)
+
+        self._injected_action_builders[name] = construct_action
+
+    @cached_property
+    def connection_object (self):
+        return LocalConnection(PlayContext())
+
+    class ActionLoader (PluginLoader):
         def __init__ (self, loader_orig, injected_action_builders):
             super().__init__(
                 class_name=loader_orig.class_name,
@@ -179,7 +172,7 @@ class RunActionMocker:
             """
 
             if name not in self.injected_action_builders:
-                return super(RunActionMocker.MockActionLoader, self).find_plugin_with_context(name, *args, **kwargs)
+                return super(AnsibleMocker.ActionLoader, self).find_plugin_with_context(name, *args, **kwargs)
             return self.mock_plugin_load_context_for_action(name)
 
         def mock_plugin_load_context_for_action (self, name):
@@ -193,7 +186,7 @@ class RunActionMocker:
         def get_with_context (self, name, *args, **kwargs):
             """Overloaded to return the instance of the action class."""
             if name not in self.injected_action_builders:
-                return super(RunActionMocker.MockActionLoader,
+                return super(AnsibleMocker.ActionLoader,
                              self).get_with_context(name, *args, **kwargs)
 
             return get_with_context_result(

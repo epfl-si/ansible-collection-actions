@@ -3,7 +3,7 @@
 import unittest
 
 from ansible.plugins.action import ActionBase
-from tests.testlib import MockTaskRunner, RunActionMocker
+from tests.testlib import MockTaskRunner, AnsibleMocker
 
 class MyPrintAction(ActionBase):
     def run(self, tmp=None, task_vars=None):
@@ -34,8 +34,8 @@ sum:
 
     def it_refuses_to_do_the_reentrant ():
         try:
-            with RunActionMocker():
-                with RunActionMocker():
+            with AnsibleMocker():
+                with AnsibleMocker():
                     assert False, "we should not be allowed to nest these."
         except TypeError:
             pass
