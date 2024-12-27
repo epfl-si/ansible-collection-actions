@@ -6,7 +6,6 @@ from unittest.mock import patch, MagicMock
 
 from ansible.executor.task_executor import TaskExecutor
 from ansible.inventory.host import Host
-from ansible.parsing.dataloader import DataLoader
 from ansible.playbook.block import Block
 from ansible.playbook.play import Play
 from ansible.playbook.play_context import PlayContext
