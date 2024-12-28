@@ -73,11 +73,14 @@ class AnsibleMocker:
     # challenged w/ YAGNI or replacing with a MagicMock. Be my guest,
     # try by yourself, run the whole test matrix again, send me a pull
     # request.
-    _action_loader_orig = ansible_loader.action_loader
+
+    _current = None
 
     def __init__ (self):
-        if ansible_loader.action_loader is not self._action_loader_orig:
-            raise TypeError("Illegal MockModuleLoader reentrant call")
+        self._nested = self.__class__._current
+        if self._nested:
+            return
+
         self._injected_action_builders = {}
 
         self.play_context = PlayContext()
@@ -114,6 +117,11 @@ class AnsibleMocker:
         return task
 
     def __enter__ (self):
+        if self._nested:
+            return self._nested
+        else:
+            self.__class__._current = self
+
         self._patches = []
 
         def empatch (where, new):
@@ -133,6 +141,11 @@ class AnsibleMocker:
         return self
 
     def __exit__ (self, exn_type=None, exn_value=None, exn_traceback=None):
+        if self._nested:
+            return
+
+        self.__class__._current = None
+
         for p in reversed(self._patches):
             p.__exit__(exn_type, exn_value, exn_traceback)
 
