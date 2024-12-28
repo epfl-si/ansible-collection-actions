@@ -32,10 +32,14 @@ sum:
         result = runner.run_one_task(task_yaml)
         assert result["sum"] == 3
 
-    def it_refuses_to_do_the_reentrant ():
-        try:
-            with AnsibleMocker():
-                with AnsibleMocker():
-                    assert False, "we should not be allowed to nest these."
-        except TypeError:
-            pass
+    def it_does_the_reentrant ():
+        """Entering a `with AnsibleMocker()` block twice, re-uses the
+        outermost instance.
+
+        This allows for one entry point of testlib to be implemented
+        in terms of another, both having a `with AnsibleMocker()` block
+        at their core.
+        """
+        with AnsibleMocker() as m1:
+            with AnsibleMocker() as m2:
+                assert m1 is m2
