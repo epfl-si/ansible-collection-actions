@@ -16,6 +16,7 @@ from ansible.plugins.connection import ConnectionBase
 from ansible.plugins.connection.local import Connection as LocalConnection
 from ansible.plugins.inventory.yaml import InventoryModule as YAMLInventory
 from ansible.plugins.loader import PluginLoader, get_with_context_result, PluginLoadContext
+from ansible.vars.hostvars import HostVars
 from ansible.vars.manager import VariableManager
 
 
@@ -100,6 +101,10 @@ class AnsibleMocker:
         self.host = MagicMock()
 
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
+        self.hostvars = HostVars(
+            inventory=self.inventory,
+            variable_manager=self.variable_manager,
+            loader=self.loader)
 
     @property
     def task (self):
@@ -304,7 +309,8 @@ class MockPlay:
                     runner = self._get_runner(inventory_hostname)
 
                     results[-1][inventory_hostname] = runner.run_one_task(
-                        task, vars=mock.variable_manager.get_vars(host=host))
+                        task, vars=mock.variable_manager.get_vars(host=host,
+                                                                  include_hostvars=True))
 
             return results
 
