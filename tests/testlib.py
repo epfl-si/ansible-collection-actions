@@ -68,7 +68,14 @@ class MockTaskRunner:
 
 
 class AnsibleMocker:
-    """The bare minimum of mocking that gets `MockTaskRunner` to pass its tests."""
+    """The bare minimum of mocking that gets the test suite to pass.
+
+    Instances of this class are meant to be used as a context manager,
+    like this:
+
+        with AnsibleMocker() as mock:
+            # Do things that invoke Ansible
+    """
     # Yes, every single line of code in this indented block was indeed
     # challenged w/ YAGNI or replacing with a MagicMock. Be my guest,
     # try by yourself, run the whole test matrix again, send me a pull
