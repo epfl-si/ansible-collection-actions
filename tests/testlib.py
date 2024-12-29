@@ -307,3 +307,27 @@ class MockPlay:
                         task, vars=mock.variable_manager.get_vars(host=host))
 
             return results
+
+class AnsibleDebugging:
+    """Bits and tricks to help troubleshooting failing tests."""
+
+    @classmethod
+    def debug_trace_on (cls):
+        return patch('ansible.constants.DEFAULT_DEBUG', True)
+
+    @classmethod
+    def assert_task_success (cls, task_state, msg=None):
+        if msg is None:
+            qualifier = ""
+        else:
+            qualifier = f"{msg}: "
+
+        if not task_state.get('failed'):
+            return
+
+        exn = task_state.get('exception')
+        if exn:
+            print(exn)
+            raise AssertionError(f'{qualifier}Ansible task failed with an exception')
+        else:
+            raise AssertionError(f'{qualifier}Ansible task failed')
