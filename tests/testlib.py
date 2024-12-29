@@ -2,10 +2,11 @@ from functools import cached_property
 import logging
 import yaml
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, Mock, MagicMock
 
 from ansible.executor.task_executor import TaskExecutor
 from ansible.inventory.host import Host
+from ansible.inventory.manager import InventoryManager
 from ansible.playbook.block import Block
 from ansible.playbook.play import Play
 from ansible.playbook.play_context import PlayContext
@@ -13,6 +14,7 @@ from ansible.playbook.task import Task
 from ansible.plugins import loader as ansible_loader
 from ansible.plugins.connection import ConnectionBase
 from ansible.plugins.connection.local import Connection as LocalConnection
+from ansible.plugins.inventory.yaml import InventoryModule as YAMLInventory
 from ansible.plugins.loader import PluginLoader, get_with_context_result, PluginLoadContext
 from ansible.vars.manager import VariableManager
 
@@ -47,7 +49,7 @@ class MockTaskRunner:
 
             self.on_each_task(inject_this_action)
 
-    def run_one_task (self, task_yaml):
+    def run_one_task (self, task_yaml, vars={}):
         with AnsibleMocker() as mock:
             for todo in self._on_each_task:
                 todo(mock)
@@ -59,7 +61,7 @@ class MockTaskRunner:
 
             executor = TaskExecutor(
                 host=mock.host, task=mock.task,
-                job_vars={}, play_context=mock.play_context,
+                job_vars=vars, play_context=mock.play_context,
                 new_stdin=None, loader=mock.loader,
                 shared_loader_obj=mock.shared_loader_obj,
                 final_q=MagicMock(), variable_manager=mock.variable_manager)
@@ -91,10 +93,10 @@ class AnsibleMocker:
         self._injected_action_builders = {}
 
         self.play_context = PlayContext()
-        self.inventory = MagicMock()
         self.loader = MagicMock()
         self.templar = MagicMock()
         self.shared_loader_obj = ansible_loader  # We mock it in __enter__()
+        self.inventory = self.InventoryManager()
         self.host = MagicMock()
 
         self.variable_manager = VariableManager(loader=self.loader, inventory=self.inventory)
@@ -205,7 +207,7 @@ class AnsibleMocker:
         def mock_plugin_load_context_for_action (self, name):
             plc = PluginLoadContext()
             plc.resolved = True
-            plc.plugin_resolved_path = f'testlib.{ name }' 
+            plc.plugin_resolved_path = f'testlib.{ name }'
             # Fool is_action_candidate test in class ModuleArgsParser:
             plc.redirect_list = [plc.plugin_resolved_path]
             return plc
@@ -219,3 +221,89 @@ class AnsibleMocker:
             return get_with_context_result(
                 self.injected_action_builders[name](),
                 self.mock_plugin_load_context_for_action(name))
+
+    class InventoryManager (InventoryManager):
+        """A clone of `ansible.inventory.manager.InventoryManager` that
+        reads from mock data in-memory, rather than the file system.
+
+        By default (i.e. after construction) the inventory is entirely
+        empty. Call :py:meth:`load_inventory` to populate it.
+        """
+        mock_inventory_filename = "<test inventory in memory>"
+
+        def __init__ (self):
+            super(AnsibleMocker.InventoryManager, self).__init__(
+                loader=MagicMock(),
+                sources=[self.mock_inventory_filename],
+                parse=False,   # We call .parse() ourselves if needed
+                cache=False)
+
+        def load_inventory (self, inventory_yaml):
+            inventory_struct = yaml_safe_load(inventory_yaml)
+
+            plugin = YAMLInventory()
+            plugin._load_name = MagicMock()
+
+            loader = Mock()
+            loader.load_from_file = lambda *_, **__: inventory_struct
+            loader.get_basedir = lambda : '.'
+
+            plugin.parse(self._inventory, loader,
+                         self.mock_inventory_filename, cache=False)
+
+
+class MockPlay:
+    """Run multiple tasks against an inventory, as Ansible would."""
+    def __init__ (self, inventory_yaml=None):
+        """Constructor.
+
+        :param inventory_yaml: The default value for subsequent calls
+                               to :py:meth:`run_tasks`, for the (most
+                               common) case where the inventory stays
+                               the same during the entire play.
+        """
+        self._runners = {}
+        self._per_runner_callbacks = []
+        self._inventory_yaml = inventory_yaml
+
+    def _get_runner (self, inventory_hostname):
+        if inventory_hostname not in self._runners:
+            runner = MockTaskRunner()
+            for callback in self._per_runner_callbacks:
+                callback(runner)
+
+            self._runners[inventory_hostname] = runner
+
+        return self._runners[inventory_hostname]
+
+    def _on_each_runner (self, cb):
+        self._per_runner_callbacks.append(cb)
+        # In case the party's already started:
+        for runner in self._runners.values():
+            cb(runner)
+
+    def inject_actions (self, **actions):
+        def inject_the_actions (runner):
+            runner.inject_actions(**actions)
+
+        self._on_each_runner(inject_the_actions)
+
+    def run_tasks(self, tasks_yaml, inventory_yaml=None):
+        if inventory_yaml is None:
+            inventory_yaml = self._inventory_yaml
+
+        with AnsibleMocker() as mock:
+            mock.inventory.load_inventory(inventory_yaml)
+
+            results = []
+            for task in yaml_safe_load(tasks_yaml):
+                results.append({})
+
+                for host in mock.inventory.list_hosts():
+                    inventory_hostname = host.get_name()
+                    runner = self._get_runner(inventory_hostname)
+
+                    results[-1][inventory_hostname] = runner.run_one_task(
+                        task, vars=mock.variable_manager.get_vars(host=host))
+
+            return results
