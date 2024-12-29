@@ -65,10 +65,10 @@ class RunActionMocker:
             self._patches.append(p)
 
         mocked_actions = self.MockActionLoader(
-            ansible_loader.module_loader, self._injected_action_builders)
+            ansible_loader.action_loader, self._injected_action_builders)
         for where in ('ansible.plugins.loader.action_loader',
                       # Some places already did some variation of
-                      # `from ansible.plugins.loader import module_loader`
+                      # `from ansible.plugins.loader import action_loader`
                       # and we have to patch them in-place:
                       'ansible.parsing.mod_args.action_loader'):
                 empatch(where, mocked_actions)
