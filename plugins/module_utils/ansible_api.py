@@ -2,13 +2,14 @@
 Encapsulations for the subset of the Ansible API that is useful when writing action modules.
 """
 
+from collections import namedtuple
 from functools import cached_property
 import inspect
 import itertools
 import os
 
 from ansible import constants as C
-from ansible.template import Templar
+from ansible.template import Templar, AnsibleUndefined
 from ansible.errors import AnsibleUndefinedVariable
 
 # There is a name clash with a module in Ansible named "copy":
@@ -56,10 +57,25 @@ class AnsibleActions (object):
         Public fields:
            jinja: holds an `AnsibleJinja` instance.
            check_mode: holds an `AnsibleCheckMode` instance.
+           undelegated: None if the task doesn't have `delegate_to`.
+             Otherwise, contains a Delegator object with
+             `.undelegated.jinja` being an `AnsibleJinja` instance
+             populated with the *original* host's variables (i.e.
+             before delegation).
         """
 
         self.__caller_action = action
         self.jinja = AnsibleJinja(action._loader, task_vars)
+
+        self.undelegated = None
+        delegate_to = action._task.delegate_to
+        if delegate_to:
+            jinja_delegate = self.jinja.delegated_to(delegate_to)
+            if jinja_delegate:
+                Delegator = namedtuple('Delegator', 'jinja')
+                self.undelegated = Delegator(self.jinja)
+                self.jinja = jinja_delegate
+
         self.check_mode = AnsibleCheckMode(action, self.jinja)
 
     @classmethod
@@ -359,6 +375,15 @@ class AnsibleJinja (object):
         except AnsibleUndefinedVariable as e:
             e.message = 'in expression %s: %s' % (expr, e.message)
             raise e
+
+    def delegated_to (self, delegate_to):
+        hostvars = self.vars["hostvars"]
+        delegated_vars = hostvars[delegate_to]
+        if isinstance(delegated_vars, AnsibleUndefined):
+            return None
+
+        delegated_vars_dict = copy.deepcopy(delegated_vars._vars)
+        return self.__class__(self.loader, delegated_vars_dict)
 
 
 class AnsibleCheckMode(object):
