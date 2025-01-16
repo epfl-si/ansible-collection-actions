@@ -330,12 +330,11 @@ class AnsibleActions (object):
         return self.jinja.complete_vars(
             defaults=defaults, overrides=overrides).expand(var)
 
-
 __not_set = object()
 
 
 class AnsibleJinja (object):
-    """Easy access to Ansible's Jinja expansion features.
+    """Easy access to Ansible's Jinja expansion and lookup features.
 
     Encapsulates an Ansible `Templar` instance, with its bag of Ansible
     variables.
@@ -377,6 +376,18 @@ class AnsibleJinja (object):
         except AnsibleUndefinedVariable as e:
             e.message = 'in expression %s: %s' % (expr, e.message)
             raise e
+
+    def lookup (self, lookup_plugin_name, *lookup_args, **lookup_kwargs):
+        # Let's face it, the design of the `lookup` Jinja function is
+        # terrible, even by Ansible standards.
+
+        none_surrogate = object()
+        if "default" not in lookup_kwargs:
+            lookup_kwargs["default"] = none_surrogate
+
+        retval = self._templar._lookup(lookup_plugin_name, *lookup_args, **lookup_kwargs)
+
+        return None if retval is none_surrogate else retval
 
     def delegated_to (self, delegate_to):
         hostvars = self.vars["hostvars"]
