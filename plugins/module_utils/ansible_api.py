@@ -7,6 +7,7 @@ from functools import cached_property
 import inspect
 import itertools
 import os
+import re
 
 from ansible import constants as C
 from ansible.template import Templar, AnsibleUndefined
@@ -182,6 +183,7 @@ class AnsibleActions (object):
                 connection = self.__caller_action._connection
 
         subtask = self.__caller_action._task.copy()
+        subtask.action = action_name
         if bypass_check_mode:
             subtask.check_mode = False
         subtask.args = copy.deepcopy(args)
