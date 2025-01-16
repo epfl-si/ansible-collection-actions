@@ -3,6 +3,7 @@
 ## version 2.2.0: major feature release
 
 - Actions decorated with `@AnsibleAction.run_method` now support Ansible's `delegate_to` feature out-of-the-box. That is, `run_method` constructs their `ansible_api.jinja` out of the Ansible vars fetched from `hostvars` by the `delegate_to` YAML field. For the (supposedly rare) case where the task want to peek at or use the “undelegated” variables, they are accessible through `ansible_api.undelegated.jinja`.
+- New method `.lookup()` for `AnsibleActions` instances
 
 ## version 2.1.0: major feature release
 

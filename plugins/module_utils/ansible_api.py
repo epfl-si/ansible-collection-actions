@@ -330,6 +330,18 @@ class AnsibleActions (object):
         return self.jinja.complete_vars(
             defaults=defaults, overrides=overrides).expand(var)
 
+    def lookup (self, lookup_plugin_name, **lookup_kwargs):
+        # #quotefest!
+
+        def quote(s):
+            return "'" + re.sub("(['\\\\])", r'\\\1', s) + "'"
+
+        selector = ', '.join(
+            f'{k}={ quote(v) }' for k, v in lookup_kwargs.items())
+
+        return self.jinja.expand(
+            "{{ lookup(%s, %s) }}" % (quote(lookup_plugin_name), selector))
+
 
 __not_set = object()
 
