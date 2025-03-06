@@ -1,6 +1,6 @@
 namespace: "epfl_si"
 name: "actions"
-version: "2.1.0"
+version: "2.2.0"
 readme: "README.md"
 description: Utilities to help build new Ansible actions
 authors:
