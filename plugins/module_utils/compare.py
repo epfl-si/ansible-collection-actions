@@ -3,6 +3,7 @@ When you are writing some Ansible code, and you want to compare things.
 """
 
 from ansible.parsing.yaml.objects import AnsibleUnicode
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 
 
 def is_substruct(a, b):
@@ -16,6 +17,10 @@ def is_substruct(a, b):
         return is_substruct(str(a), b)
     elif type(b) == AnsibleUnicode:
         return is_substruct(a, str(b))
+    if type(a) == AnsibleUnsafeText:
+        return is_substruct(a._strip_unsafe(), b)
+    elif type(b) == AnsibleUnsafeText:
+        return is_substruct(a, b._strip_unsafe())
     elif type(a) != type(b):
         return False
     elif type(a) == dict:
