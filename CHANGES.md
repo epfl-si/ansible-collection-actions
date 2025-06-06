@@ -1,5 +1,9 @@
 # Changelog for epfl_si.actions
 
+## version 2.4.0: minor feature release
+
+- new `ansible_collections.epfl_si.actions.plugins.module_utils.strings` module, providing `is_string_type` and `is_same_string` functions
+
 ## version 2.3.0: minor feature release
 
 - `is_substruct` helper in `module_utils.compare`
